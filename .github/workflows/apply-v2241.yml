@@ -1,10 +1,11 @@
-name: Apply V2.2.41 print layout stabilization
+name: Apply V2.2.41 patch
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - '.github/workflows/apply-v2241.yml'
+      - .github/workflows/apply-v2241.yml
 
 permissions:
   contents: write
@@ -13,151 +14,21 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Apply scoped Sales Report print CSS
-        shell: bash
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Apply patch
+        run: python3 scripts/apply_v2241_patch.py
+      - name: Verify V2.2.41
+        run: php scripts/verify_v2241_sales_print_layout.php
+      - name: Regression verify V2.2.40
+        run: php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+      - name: PHP syntax
+        run: php -l management/sales_records.php
+      - name: Commit patch
         run: |
-          set -euo pipefail
-          marker='V2.2.41 Sales Report print layout stabilization'
-          if ! grep -q "$marker" assets/css/style.css; then
-            cat >> assets/css/style.css <<'CSS'
-
-/* V2.2.41 Sales Report print layout stabilization */
-@media print {
-    /* Scope this patch to the Sales Report page without changing other reports. */
-    body:has(#debtLedgerPrintArea) {
-        padding-top: 0 !important;
-    }
-
-    @page {
-        size: A4 landscape;
-        margin: 8mm;
-    }
-
-    body:has(#debtLedgerPrintArea) .container-fluid {
-        width: 100% !important;
-        max-width: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-
-    body:has(#debtLedgerPrintArea) .card-body {
-        padding: 8px !important;
-    }
-
-    body:has(#debtLedgerPrintArea) .table-responsive {
-        overflow: visible !important;
-        width: 100% !important;
-    }
-
-    body:has(#debtLedgerPrintArea) table.table {
-        width: 100% !important;
-        max-width: 100% !important;
-        table-layout: fixed !important;
-        font-size: 7.5pt !important;
-        margin-bottom: 8px !important;
-    }
-
-    body:has(#debtLedgerPrintArea) table.table th,
-    body:has(#debtLedgerPrintArea) table.table td {
-        padding: 3px 4px !important;
-        white-space: normal !important;
-        overflow-wrap: anywhere !important;
-        word-break: normal !important;
-        vertical-align: top !important;
-    }
-
-    /* Actions are interactive only; remove the otherwise-empty print column. */
-    body:has(#debtLedgerPrintArea) table.table th:last-child:has(+ *),
-    body:has(#debtLedgerPrintArea) table.table td:last-child:has(.btn) {
-        display: none !important;
-    }
-
-    /* Keep debt-ledger heading with at least its first row instead of orphaning the header. */
-    body:has(#debtLedgerPrintArea) #debtLedgerPrintArea table {
-        break-inside: avoid-page;
-        page-break-inside: avoid;
-    }
-
-    body:has(#debtLedgerPrintArea) #debtLedgerPrintArea thead {
-        display: table-header-group;
-        break-after: avoid-page;
-        page-break-after: avoid;
-    }
-
-    body:has(#debtLedgerPrintArea) #debtLedgerPrintArea tbody tr:first-child {
-        break-before: avoid-page;
-        page-break-before: avoid;
-    }
-
-    body:has(#debtLedgerPrintArea) table.table tr {
-        break-inside: avoid-page;
-        page-break-inside: avoid;
-    }
-}
-CSS
-          fi
-
-          cat > scripts/verify_v2241_sales_print_layout.php <<'PHP'
-<?php
-$css = file_get_contents(dirname(__DIR__) . '/assets/css/style.css');
-$checks = [
-    'version marker' => str_contains($css, 'V2.2.41 Sales Report print layout stabilization'),
-    'sales report scoped' => str_contains($css, 'body:has(#debtLedgerPrintArea)'),
-    'landscape print page' => str_contains($css, 'size: A4 landscape'),
-    'responsive overflow released' => str_contains($css, 'overflow: visible !important'),
-    'print table constrained' => str_contains($css, 'table-layout: fixed !important'),
-    'cells wrap in print' => str_contains($css, 'overflow-wrap: anywhere !important'),
-    'debt table avoids orphan break' => str_contains($css, '#debtLedgerPrintArea table') && str_contains($css, 'break-inside: avoid-page'),
-    'first debt row stays with header' => str_contains($css, '#debtLedgerPrintArea tbody tr:first-child'),
-];
-$failed = 0;
-foreach ($checks as $name => $ok) {
-    echo ($ok ? 'PASS' : 'FAIL') . " - $name\n";
-    if (!$ok) $failed++;
-}
-echo 'Result: ' . (count($checks)-$failed) . '/' . count($checks) . " passed\n";
-exit($failed ? 1 : 0);
-PHP
-
-          cat > DEPLOYMENT_V2.2.41.md <<'MD'
-# V2.2.41 — Sales Report Print Layout Stabilization
-
-## Scope
-Print-only stabilization for `management/sales_records.php`.
-
-## Fixes
-- Uses A4 landscape for the Sales Report so the full Sales Records table can fit.
-- Releases `.table-responsive` overflow during printing.
-- Constrains report tables to printable width and permits cell wrapping.
-- Reduces print table typography/padding without changing screen layout.
-- Keeps the debt-ledger header with its first data row where the browser supports paged-media break rules.
-- Leaves V2.2.40 receivable/payment logic untouched.
-
-## Verification
-Run:
-
-```bash
-php scripts/verify_v2241_sales_print_layout.php
-php scripts/verify_v2240_receivable_payment_overpayment_protection.php
-php -l management/sales_records.php
-```
-
-Then live-QA **Print Monthly** and confirm all Sales Records columns are visible and the debt ledger no longer leaves an orphan header at the bottom of page 1.
-MD
-
-          php scripts/verify_v2241_sales_print_layout.php
-          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
-          php -l management/sales_records.php
-
-      - name: Commit V2.2.41
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          rm -f .github/workflows/apply-v2241.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/apply-v2241.yml scripts/apply_v2241_patch.py
           git add -A
-          git commit -m 'fix: V2.2.41 Sales Report print layout stabilization'
+          git commit -m "fix: V2.2.41 Sales Report print layout stabilization"
           git push origin HEAD:main
