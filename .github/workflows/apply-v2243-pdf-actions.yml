@@ -1,0 +1,151 @@
+name: Apply V2.2.43 PDF actions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-v2243-pdf-actions.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply V2.2.43 PDF actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+
+          def replace_report_buttons(path):
+              p = root / path
+              text = p.read_text()
+              text = re.sub(
+                  r'<button class="btn btn-primary" id="printMonthlyBtn"([^>]*)><i class="bi bi-printer"></i> Print Monthly</button>',
+                  r'<a class="btn btn-primary" id="printMonthlyBtn"\1 href="<?php echo htmlspecialchars($pdfReportUrl); ?>" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF Monthly</a>',
+                  text,
+                  count=1,
+              )
+              text = re.sub(
+                  r'<button class="btn btn-primary" id="printYearlyBtn"([^>]*)><i class="bi bi-printer"></i> Print Yearly</button>',
+                  r'<a class="btn btn-primary" id="printYearlyBtn"\1 href="<?php echo htmlspecialchars($pdfReportUrl); ?>" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF Yearly</a>',
+                  text,
+                  count=1,
+              )
+              # Remove any stale browser-print handlers on the migrated report actions.
+              text = re.sub(r"\s*\$\('#printMonthlyBtn'\)\.on\('click', function\(\) \{\s*PrintManager\.print\(\);\s*\}\);", '', text)
+              text = re.sub(r"\s*\$\('#printYearlyBtn'\)\.on\('click', function\(\) \{\s*PrintManager\.print\(\);\s*\}\);", '', text)
+              text = re.sub(r"\s*\$\('#printMonthlyBtn, #printYearlyBtn'\)\.on\('click', function\(\) \{\s*PrintManager\.print\(\);\s*\}\);", '', text)
+              p.write_text(text)
+
+          replace_report_buttons('management/sales_records.php')
+          replace_report_buttons('management/expenses.php')
+
+          def migrate_expense_page(path, title_expr, filename_prefix, orientation='landscape'):
+              p = root / path
+              text = p.read_text()
+
+              config = "require_once(__DIR__ . '/../config.php');"
+              service = "require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');"
+              if service not in text:
+                  text = text.replace(config, config + "\n" + service, 1)
+
+              if 'pdf_report_is_requested()' not in text:
+                  marker = 'requireLogin();'
+                  text = text.replace(marker, marker + "\n$pdfRequested = pdf_report_is_requested();\nif ($pdfRequested) { pdf_report_begin(); }", 1)
+
+              if '$pdfReportUrl = pdf_report_current_url();' not in text:
+                  text = text.replace("?>\n<!DOCTYPE html>", "$pdfReportUrl = pdf_report_current_url();\n?>\n<!DOCTYPE html>", 1)
+
+              # Add PDF button immediately before Add Expense in the header controls.
+              if 'PDF Report</a>' not in text:
+                  add_button = '<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">'
+                  pdf_link = '<a class="btn btn-outline-primary" href="<?php echo htmlspecialchars($pdfReportUrl); ?>" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF Report</a>\n                            '
+                  text = text.replace(add_button, pdf_link + add_button, 1)
+
+              finish = f"\n<?php\nif ($pdfRequested) {{\n    pdf_report_finish('{filename_prefix}-' . $yearMonth . '.pdf', '{orientation}', {title_expr});\n}}\n?>\n"
+              if 'pdf_report_finish(' not in text:
+                  text = text.rstrip() + finish
+
+              p.write_text(text)
+
+          migrate_expense_page(
+              'poultry/layer_expenses.php',
+              "'Layer Expenses Record - ' . date('F Y', strtotime($yearMonth))",
+              'layer-expenses'
+          )
+          migrate_expense_page(
+              'poultry/broiler_expenses.php',
+              "'Broiler Expenses Record - ' . date('F Y', strtotime($yearMonth))",
+              'broiler-expenses'
+          )
+          migrate_expense_page(
+              'ruminant/ruminant_expenses.php',
+              "'Ruminant Expenses Record - ' . date('F Y', strtotime($yearMonth))",
+              'ruminant-expenses'
+          )
+
+          Path('scripts/verify_v2243_pdf_actions.php').write_text(r'''<?php
+          $root = dirname(__DIR__);
+          $checks = [];
+          $must = function(bool $ok, string $msg) use (&$checks) { $checks[] = [$ok, $msg]; };
+
+          foreach (['management/sales_records.php','management/expenses.php'] as $file) {
+              $src = file_get_contents($root . '/' . $file);
+              $must(str_contains($src, 'PDF Monthly'), "$file exposes PDF Monthly");
+              $must(str_contains($src, 'PDF Yearly'), "$file exposes PDF Yearly");
+              $must(str_contains($src, 'href="<?php echo htmlspecialchars($pdfReportUrl); ?>"'), "$file PDF actions are real links");
+              $must(!preg_match('/id="printMonthlyBtn"[^>]*>.*Print Monthly/s', $src), "$file old dead Print Monthly button removed");
+          }
+
+          foreach ([
+              'poultry/layer_expenses.php' => 'Layer',
+              'poultry/broiler_expenses.php' => 'Broiler',
+              'ruminant/ruminant_expenses.php' => 'Ruminant',
+          ] as $file => $label) {
+              $src = file_get_contents($root . '/' . $file);
+              $must(str_contains($src, 'PdfReportService.php'), "$label expenses loads central PDF service");
+              $must(str_contains($src, 'pdf_report_current_url()'), "$label expenses builds application PDF URL");
+              $must(str_contains($src, 'PDF Report'), "$label expenses exposes PDF Report action");
+              $must(str_contains($src, 'pdf_report_finish('), "$label expenses streams through central PDF engine");
+          }
+
+          $fail = 0;
+          foreach ($checks as [$ok,$msg]) { echo ($ok ? 'PASS' : 'FAIL') . " - $msg\n"; if (!$ok) $fail++; }
+          echo 'Result: ' . (count($checks)-$fail) . '/' . count($checks) . " passed\n";
+          exit($fail ? 1 : 0);
+          ''')
+
+          Path('DEPLOYMENT_V2.2.43.md').write_text('''# V2.2.43 — PDF Action Completion\n\n## Fixes\n- Sales Report dead Print Monthly/Yearly buttons replaced with direct PDF Monthly/Yearly links.\n- Expense Report dead Print Monthly/Yearly buttons replaced with direct PDF Monthly/Yearly links.\n- Layer Expenses now has PDF Report.\n- Broiler Expenses now has PDF Report.\n- Ruminant Expenses now has PDF Report.\n- All new expense PDFs use the centralized `PdfReportService` introduced in V2.2.42.\n- Browser URL/title/timestamp headers are not part of these application-generated PDFs.\n\n## Regression\n- Poultry & Ruminant PDF Report remains application-generated.\n- Receivables logic remains unchanged.\n''')
+          PY
+
+      - name: Verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          php scripts/verify_v2243_pdf_actions.php
+          php scripts/verify_v2242_pdf_engine.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+          php -l management/sales_records.php
+          php -l management/expenses.php
+          php -l poultry/layer_expenses.php
+          php -l poultry/broiler_expenses.php
+          php -l ruminant/ruminant_expenses.php
+
+      - name: Commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add management/sales_records.php management/expenses.php poultry/layer_expenses.php poultry/broiler_expenses.php ruminant/ruminant_expenses.php scripts/verify_v2243_pdf_actions.php DEPLOYMENT_V2.2.43.md
+          git commit -m "fix: V2.2.43 complete application PDF actions"
+          git push
