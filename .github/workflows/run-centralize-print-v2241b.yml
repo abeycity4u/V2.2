@@ -1,0 +1,44 @@
+name: Complete V2.2.41 centralized print migration
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/run-centralize-print-v2241b.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migration
+        run: python3 scripts/centralize_print_v2241.py
+      - name: Fix self-scan and verify
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/verify_v2241_central_print_architecture.php')
+          s=p.read_text()
+          s=s.replace("str_ends_with($p,'/assets/js/print-manager.js')) continue;", "(str_ends_with($p,'/assets/js/print-manager.js') || str_ends_with($p,'/scripts/verify_v2241_central_print_architecture.php'))) continue;")
+          p.write_text(s)
+          PY
+          php scripts/verify_v2241_central_print_architecture.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+          php -l management/sales_records.php
+          php -l management/reports.php
+          php -l navbar_head.php
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/run-centralize-print-v2241.yml
+          rm -f .github/workflows/run-centralize-print-v2241b.yml
+          rm -f .github/workflows/centralize-print-v2241.yml
+          rm -f scripts/centralize_print_v2241.py
+          git add -A
+          git commit -m 'refactor: centralize V2.2.41 platform print architecture'
+          git push origin HEAD:main
