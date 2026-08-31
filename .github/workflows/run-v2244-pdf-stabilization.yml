@@ -1,0 +1,30 @@
+name: Run V2.2.44 PDF stabilization
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-v2244-pdf-stabilization.yml'
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migration
+        run: python3 scripts/apply_v2244_pdf_stabilization.py
+      - name: Verify
+        run: |
+          php scripts/verify_v2244_pdf_stabilization.php
+          php scripts/verify_v2242_pdf_engine.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+          php -l includes/pdf/PdfReportService.php
+          php -l management/expenses.php
+          php -l management/reports.php
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: V2.2.44 stabilize PDFs and consolidate deployment docs"
+          git push
