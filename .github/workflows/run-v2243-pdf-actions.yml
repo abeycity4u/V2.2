@@ -1,0 +1,35 @@
+name: Run V2.2.43 PDF action migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-v2243-pdf-actions.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migration
+        run: python3 scripts/apply_v2243_pdf_actions.py
+      - name: Verify
+        run: |
+          php scripts/verify_v2243_pdf_actions.php
+          php scripts/verify_v2242_pdf_engine.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+          php -l management/sales_records.php
+          php -l management/expenses.php
+          php -l poultry/layer_expenses.php
+          php -l poultry/broiler_expenses.php
+          php -l ruminant/ruminant_expenses.php
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add management/sales_records.php management/expenses.php poultry/layer_expenses.php poultry/broiler_expenses.php ruminant/ruminant_expenses.php scripts/verify_v2243_pdf_actions.php DEPLOYMENT_V2.2.43.md
+          git commit -m "fix: V2.2.43 complete PDF report actions"
+          git push
