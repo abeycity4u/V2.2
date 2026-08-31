@@ -1,9 +1,12 @@
 <?php require_once(dirname(__DIR__) . '/init.php'); ?>
 <?php
 require_once(__DIR__ . '/../config.php');
+require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');
 require_once(__DIR__ . '/../includes/functions.php');
 require_once(__DIR__ . '/../lib/attribution.php');
 requireLogin();
+$pdfRequested = pdf_report_is_requested();
+if ($pdfRequested) { pdf_report_begin(); }
 
 // Check access
 if (!checkAccess('ruminant') && !hasPermission($_SESSION['user_type'], 'ruminant_expenses')) {
@@ -97,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_expense'])) {
     header("Location: ruminant_expenses.php?month=" . $redirectMonth);
     exit();
 }
+$pdfReportUrl = pdf_report_current_url();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -122,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_expense'])) {
                         <div class="d-flex flex-wrap gap-2">
                             <input type="date" class="form-control js-calendar-input" id="monthSelector" 
                                    value="<?php echo $monthSelectorDate; ?>" style="width: 200px;">
+                            <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars($pdfReportUrl); ?>" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF Report</a>
                             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
                                 <i class="bi bi-plus-circle"></i> Add Expense
                             </button>
@@ -513,3 +518,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_expense'])) {
     </script>
 </body>
 </html>
+<?php
+if ($pdfRequested) {
+    pdf_report_finish('ruminant-expenses-' . $yearMonth . '.pdf', 'landscape', 'Ruminant Expenses Record - ' . date('F Y', strtotime($yearMonth)));
+}
+?>
