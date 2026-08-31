@@ -1,0 +1,378 @@
+from pathlib import Path
+import re
+
+root = Path('.')
+scan_ext = {'.php', '.js', '.css'}
+patterns = [
+    re.compile(r'window\.print\s*\('),
+    re.compile(r'@media\s+print'),
+    re.compile(r'bi-printer'),
+    re.compile(r'\bPrint(?:\s+[A-Z][A-Za-z]+)*\b'),
+    re.compile(r'no-print'),
+]
+
+audit = []
+for p in sorted(root.rglob('*')):
+    if not p.is_file() or p.suffix.lower() not in scan_ext:
+        continue
+    s = str(p).replace('\\', '/')
+    if 'assets/vendor/' in s or '/.git/' in s:
+        continue
+    try:
+        text = p.read_text()
+    except Exception:
+        continue
+    hits = []
+    for i, line in enumerate(text.splitlines(), 1):
+        if any(rx.search(line) for rx in patterns):
+            hits.append((i, line.strip()))
+    if hits:
+        audit.append((s, hits))
+
+Path('assets/css/print.css').write_text(r'''/* Renee Farms centralized print architecture — V2.2.41 */
+@media print {
+    @page { margin: 8mm; }
+
+    html, body {
+        background: #fff !important;
+        color: #111 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    body { padding-top: 0 !important; }
+
+    .no-print,
+    .print-action-column,
+    .report-controls,
+    .dataTables_length,
+    .dataTables_filter,
+    .dataTables_paginate,
+    .dataTables_info,
+    .dt-buttons,
+    .pagination,
+    .modal,
+    .offcanvas,
+    nav.navbar,
+    .navbar,
+    button:not(.print-keep),
+    .btn:not(.print-keep),
+    .form-select:not(.print-keep),
+    .form-control:not(.print-keep),
+    .input-group:not(.print-keep) {
+        display: none !important;
+    }
+
+    a[href]::after,
+    a[href]:after { content: '' !important; }
+
+    .container,
+    .container-fluid {
+        width: 100% !important;
+        max-width: none !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .table-responsive {
+        overflow: visible !important;
+        width: 100% !important;
+    }
+
+    table,
+    table.table {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: auto;
+        break-inside: auto;
+    }
+
+    body.print-wide table,
+    body.print-wide table.table {
+        table-layout: fixed !important;
+        font-size: 7.5pt !important;
+    }
+
+    table th,
+    table td,
+    .table th,
+    .table td {
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+        vertical-align: top !important;
+        padding: 3px 4px !important;
+        border-color: #aeb7c0 !important;
+    }
+
+    table thead,
+    .table thead { display: table-header-group; }
+
+    table tr,
+    .table tr {
+        page-break-inside: avoid;
+        break-inside: avoid-page;
+    }
+
+    .print-keep-together,
+    .card.print-keep-together,
+    [data-print-keep='together'] {
+        page-break-inside: avoid;
+        break-inside: avoid-page;
+    }
+
+    [data-print-keep='header-with-first-row'] thead {
+        break-after: avoid-page;
+        page-break-after: avoid;
+    }
+
+    [data-print-keep='header-with-first-row'] tbody tr:first-child {
+        break-before: avoid-page;
+        page-break-before: avoid;
+    }
+
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #c7ced6 !important;
+    }
+
+    .card, .card *, .table, .table *, .report-summary-card, .report-summary-card * {
+        opacity: 1 !important;
+    }
+
+    .table th {
+        color: #fff !important;
+        background: #1e7e34 !important;
+    }
+
+    .badge,
+    .badge.bg-light,
+    .badge.text-dark {
+        background: #e9ecef !important;
+        color: #111 !important;
+        border: 1px solid #b9c0c8 !important;
+    }
+}
+''')
+
+Path('assets/js/print-manager.js').write_text(r'''/* Renee Farms centralized print manager — V2.2.41 */
+(function () {
+    'use strict';
+
+    const nativePrint = window.print.bind(window);
+    let pageStyle = null;
+
+    function normalize(text) {
+        return String(text || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function markActionColumns() {
+        document.querySelectorAll('table').forEach(table => {
+            const headers = Array.from(table.querySelectorAll('thead th'));
+            headers.forEach((th, index) => {
+                const label = normalize(th.textContent);
+                if (label === 'actions' || label === 'action') {
+                    th.classList.add('print-action-column');
+                    table.querySelectorAll('tr').forEach(row => {
+                        const cell = row.children[index];
+                        if (cell) cell.classList.add('print-action-column');
+                    });
+                }
+            });
+        });
+    }
+
+    function widestTableColumnCount() {
+        let max = 0;
+        document.querySelectorAll('table').forEach(table => {
+            const row = table.querySelector('thead tr') || table.querySelector('tr');
+            if (!row) return;
+            const count = Array.from(row.children).filter(cell =>
+                !cell.classList.contains('print-action-column') && !cell.classList.contains('no-print')
+            ).length;
+            max = Math.max(max, count);
+        });
+        return max;
+    }
+
+    function resolveOrientation(options) {
+        const explicit = (options && options.orientation) || document.body.dataset.printOrientation;
+        if (explicit === 'portrait' || explicit === 'landscape') return explicit;
+        return widestTableColumnCount() >= 7 ? 'landscape' : 'portrait';
+    }
+
+    function prepare(options) {
+        markActionColumns();
+        const orientation = resolveOrientation(options || {});
+        document.body.classList.toggle('print-wide', orientation === 'landscape');
+        document.body.dataset.activePrintOrientation = orientation;
+        if (!pageStyle) {
+            pageStyle = document.createElement('style');
+            pageStyle.id = 'platformPrintPageStyle';
+            document.head.appendChild(pageStyle);
+        }
+        pageStyle.textContent = `@media print { @page { size: A4 ${orientation}; margin: 8mm; } }`;
+        return orientation;
+    }
+
+    function cleanup() {
+        document.body.classList.remove('print-wide');
+        delete document.body.dataset.activePrintOrientation;
+    }
+
+    function print(options) {
+        prepare(options || {});
+        nativePrint();
+    }
+
+    document.addEventListener('click', event => {
+        const trigger = event.target.closest('[data-print]');
+        if (!trigger) return;
+        event.preventDefault();
+        print({ orientation: trigger.dataset.printOrientation || undefined });
+    });
+
+    window.addEventListener('beforeprint', () => prepare({}));
+    window.addEventListener('afterprint', cleanup);
+    window.PrintManager = { print, prepare, cleanup };
+})();
+''')
+
+style_path = Path('assets/css/style.css')
+style = style_path.read_text()
+
+def remove_media_block_after_marker(text, marker):
+    pos = text.find(marker)
+    if pos < 0:
+        return text
+    media = text.find('@media print', pos)
+    if media < 0:
+        return text
+    brace = text.find('{', media)
+    if brace < 0:
+        return text
+    depth = 0
+    end = None
+    for i in range(brace, len(text)):
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+    if end is None:
+        return text
+    while end < len(text) and text[end] in '\r\n':
+        end += 1
+    return text[:pos] + text[end:]
+
+style = remove_media_block_after_marker(style, '/* Print Styles */')
+style = remove_media_block_after_marker(style, '/* V2.2.41 Sales Report print layout stabilization */')
+style_path.write_text(style)
+
+nh = Path('navbar_head.php')
+text = nh.read_text()
+css_line = '<link rel="stylesheet" href="<?php echo BASE_URL; ?><?php echo versioned_asset(\'/assets/css/print.css\'); ?>">'
+js_line = '<script defer src="<?php echo BASE_URL; ?><?php echo versioned_asset(\'/assets/js/print-manager.js\'); ?>"></script>'
+if '/assets/css/print.css' not in text:
+    anchor = '<link rel="stylesheet" href="<?php echo BASE_URL; ?><?php echo versioned_asset(\'/assets/css/theme.css\'); ?>">'
+    if anchor not in text:
+        raise SystemExit('theme.css anchor not found in navbar_head.php')
+    text = text.replace(anchor, anchor + '\n' + css_line, 1)
+if '/assets/js/print-manager.js' not in text:
+    text = text.replace(css_line, css_line + '\n' + js_line, 1)
+nh.write_text(text)
+
+changed = []
+for p in sorted(root.rglob('*')):
+    if not p.is_file() or p.suffix.lower() not in {'.php', '.js'}:
+        continue
+    s = str(p).replace('\\', '/')
+    if 'assets/vendor/' in s or s.endswith('assets/js/print-manager.js'):
+        continue
+    old = p.read_text()
+    new = re.sub(r'window\.print\s*\(\s*\)\s*;?', 'PrintManager.print();', old)
+    if new != old:
+        p.write_text(new)
+        changed.append(s)
+
+sales = Path('management/sales_records.php')
+if sales.exists():
+    text = sales.read_text()
+    if 'id="debtLedgerPrintArea" data-print-keep=' not in text:
+        text = text.replace('id="debtLedgerPrintArea"', 'id="debtLedgerPrintArea" data-print-keep="header-with-first-row"', 1)
+    sales.write_text(text)
+
+lines = [
+    '# V2.2.41 Platform Print Architecture Audit',
+    '',
+    'This audit was generated before centralization by scanning application PHP/JS/CSS for native printing, print buttons, print CSS and `no-print` usage.',
+    '',
+    '## Pre-centralization print touchpoints',
+    '',
+]
+for path, hits in audit:
+    lines.append(f'### `{path}`')
+    for ln, txt in hits[:40]:
+        lines.append(f'- L{ln}: `{txt[:220]}`')
+    if len(hits) > 40:
+        lines.append(f'- … {len(hits)-40} additional matches')
+    lines.append('')
+lines += [
+    '## Centralized architecture',
+    '',
+    '- `assets/css/print.css` owns print layout, table wrapping, page breaks, print colors and hidden interactive UI.',
+    '- `assets/js/print-manager.js` owns print invocation, automatic portrait/landscape selection and automatic Actions-column suppression.',
+    '- `navbar_head.php` loads both once for all application pages.',
+    '- Direct `window.print()` calls are migrated to `PrintManager.print()`.',
+    '- Pages can override orientation with `data-print-orientation="portrait|landscape"`; otherwise the manager chooses landscape for wide tables.',
+    '- `data-print-keep="header-with-first-row"` and `.print-keep-together` provide reusable page-break semantics.',
+    '',
+    '## Files migrated from native print calls',
+]
+lines += [f'- `{x}`' for x in changed] or ['- None found by scanner.']
+Path('docs/PRINT_ARCHITECTURE_AUDIT.md').write_text('\n'.join(lines) + '\n')
+
+Path('scripts/verify_v2241_central_print_architecture.php').write_text(r'''<?php
+$root=dirname(__DIR__);
+$css=file_get_contents($root.'/assets/css/print.css');
+$js=file_get_contents($root.'/assets/js/print-manager.js');
+$head=file_get_contents($root.'/navbar_head.php');
+$style=file_get_contents($root.'/assets/css/style.css');
+$checks=[];
+$must=function($ok,$msg)use(&$checks){$checks[]=[$ok,$msg];};
+$must(str_contains($head,"/assets/css/print.css"),'central print stylesheet loaded globally');
+$must(str_contains($head,"/assets/js/print-manager.js"),'central print manager loaded globally');
+$must(str_contains($js,'widestTableColumnCount'),'orientation auto-detects wide tables');
+$must(str_contains($js,"label === 'actions'"),'Actions columns are centrally detected');
+$must(str_contains($css,'.print-action-column'),'Actions columns are centrally hidden');
+$must(str_contains($css,'.table-responsive'),'responsive table overflow is centrally released');
+$must(str_contains($css,'table-header-group'),'table headers repeat across printed pages');
+$must(str_contains($css,'break-inside: avoid-page'),'row/section page breaks are centrally controlled');
+$must(!str_contains($style,'V2.2.41 Sales Report print layout stabilization'),'Sales-specific print patch removed from style.css');
+$must(!str_contains($style,'/* Print Styles */'),'legacy global print block removed from style.css');
+$native=[];
+$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS));
+foreach($it as $f){
+    $p=str_replace('\\','/',$f->getPathname());
+    if(!preg_match('/\.(php|js)$/',$p) || str_contains($p,'/assets/vendor/') || str_ends_with($p,'/assets/js/print-manager.js')) continue;
+    if(str_contains(file_get_contents($p),'window.print(')) $native[]=$p;
+}
+$must(!$native,'no application page bypasses PrintManager with window.print()');
+foreach($checks as [$ok,$msg]) echo ($ok?'PASS':'FAIL')." - $msg\n";
+$fail=count(array_filter($checks,fn($x)=>!$x[0]));
+if($native) echo "Native print leftovers:\n".implode("\n",$native)."\n";
+echo 'Result: '.(count($checks)-$fail).'/'.count($checks)." passed\n";
+exit($fail?1:0);
+''')
+
+Path('DEPLOYMENT_V2.2.41.md').write_text('''# V2.2.41 — Centralized Platform Print Architecture\n\n## Scope\nPlatform-wide print cleanup and stabilization.\n\n## Architecture\n- `assets/css/print.css` is the single source of truth for browser-print layout.\n- `assets/js/print-manager.js` is the single print entry point and automatically chooses portrait/landscape based on report width unless a page explicitly overrides it.\n- Print assets are loaded globally by `navbar_head.php`.\n- Actions columns, buttons, filters, navigation and other interactive UI are removed centrally.\n- Responsive tables are made printable, cells wrap, headers repeat, and rows avoid splitting across pages.\n- Shared page-break utilities replace page-specific print CSS.\n\n## Audit\nSee `docs/PRINT_ARCHITECTURE_AUDIT.md` for all pre-centralization print touchpoints discovered by the repository scan.\n\n## Regression\nReceivable/payment business logic is unchanged. V2.2.40 verification must continue to pass.\n''')
+
+print('Centralized print architecture prepared.')
+print('Native print callers migrated:', len(changed))
+for path in changed:
+    print(' -', path)
