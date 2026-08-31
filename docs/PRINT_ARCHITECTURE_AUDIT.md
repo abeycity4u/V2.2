@@ -62,3 +62,9 @@ This audit was generated before centralization by scanning application PHP/JS/CS
 - `management/poultry_ruminant_report.php`
 - `management/reports.php`
 - `management/sales_records.php`
+
+## Post-centralization consolidation
+
+- Legacy print blocks were removed from both `assets/css/style.css` and `assets/css/dashboard.css`.
+- `assets/css/print.css` is now the only application-owned `@media print` source.
+- Runtime page orientation is owned by `assets/js/print-manager.js`.

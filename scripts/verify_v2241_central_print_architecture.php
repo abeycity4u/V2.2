@@ -16,6 +16,8 @@ $must(str_contains($css,'table-header-group'),'table headers repeat across print
 $must(str_contains($css,'break-inside: avoid-page'),'row/section page breaks are centrally controlled');
 $must(!str_contains($style,'V2.2.41 Sales Report print layout stabilization'),'Sales-specific print patch removed from style.css');
 $must(!str_contains($style,'/* Print Styles */'),'legacy global print block removed from style.css');
+$dashboard=file_get_contents($root.'/assets/css/dashboard.css');
+$must(!str_contains($dashboard,'@media print'),'dashboard no longer carries duplicate print CSS');
 $native=[];
 $it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS));
 foreach($it as $f){

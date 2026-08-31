@@ -239,18 +239,6 @@ body {
     border: none;
 }
 
-/* Print Styles */
-@media print {
-    .no-print {
-        display: none !important;
-    }
-    
-    .card {
-        box-shadow: none !important;
-        border: 1px solid #dee2e6 !important;
-    }
-}
-
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .container-fluid {
