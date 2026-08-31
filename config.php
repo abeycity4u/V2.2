@@ -1,0 +1,373 @@
+<?php
+// Database configuration
+define('DB_HOST', getenv('DB_HOST') ?: '');
+define('DB_USER', getenv('DB_USER') ?: '');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_NAME', getenv('DB_NAME') ?: '');
+
+// Add to config.php
+set_include_path(get_include_path() . PATH_SEPARATOR . dirname(__FILE__));
+
+// Determine the application's base URL so links work consistently from any directory
+if (!defined('BASE_URL')) {
+    $appRoot = str_replace('\\', '/', realpath(__DIR__));
+    $docRoot = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'], '/'));
+    $relativePath = '/' . trim(str_replace($docRoot, '', $appRoot), '/');
+
+    // If the application lives in the web root, keep the base empty; otherwise include the folder name
+    define('BASE_URL', $relativePath === '/' ? '' : $relativePath);
+}
+
+// V2 security baseline
+define('SESSION_TIMEOUT', 900);
+
+// Security headers are emitted once for every application response.
+if (!headers_sent()) {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    header('Cache-Control: private, no-store, max-age=0');
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
+} // 15 minutes
+ini_set('session.use_strict_mode', '1');
+session_set_cookie_params([
+    'httponly' => true,
+    'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+    'samesite' => 'Lax',
+    'path' => BASE_URL ?: '/',
+]);
+session_start();
+
+// If a user is logged in, expire the session after prolonged inactivity
+if (isset($_SESSION['user_id']) && isset($_SESSION['LAST_ACTIVITY'])) {
+    if (time() - $_SESSION['LAST_ACTIVITY'] > SESSION_TIMEOUT) {
+        session_unset();
+        session_destroy();
+        header('Location: ' . BASE_URL . '/login.php?timeout=1');
+        exit();
+    }
+}
+
+// Track the timestamp of the current request
+if (isset($_SESSION['user_id'])) {
+    $_SESSION['LAST_ACTIVITY'] = time();
+}
+
+// Create database connection
+try {
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    error_log('Database connection failed: ' . $e->getMessage());
+    die('Unable to connect to the database. Please try again later.');
+}
+
+/**
+ * Convert an exception into a safe, user-facing message without exposing
+ * SQL, file paths, stack traces, or other implementation details.
+ * Keep this in the common config bootstrap because every application page
+ * includes config.php directly or through init.php.
+ */
+if (!function_exists('safeUserExceptionMessage')) {
+    function safeUserExceptionMessage(Throwable $exception, string $fallback = 'The requested action could not be completed.'): string
+    {
+        $message = trim($exception->getMessage());
+
+        // Known, actionable validation/stock messages are safe to show.
+        $safePrefixes = [
+            'Insufficient stock.',
+            'Selected feed item is not active',
+            'The feed item linked to',
+            'The selected feed item',
+            'Opening stock must match',
+            'Mortality cannot exceed',
+            'Value must be greater than or equal',
+            'Please select a feed item',
+            'Cycle code already exists',
+        ];
+        foreach ($safePrefixes as $prefix) {
+            if (stripos($message, $prefix) === 0) {
+                return $message;
+            }
+        }
+
+        // Never expose SQLSTATE, SQL text, filesystem paths, or driver details.
+        error_log('User-facing exception handled: ' . $message);
+        return $fallback;
+    }
+}
+
+// Check if user is logged in
+function isLoggedIn() {
+    return isset($_SESSION['user_id']);
+}
+
+// Check user type
+function getUserType() {
+    return $_SESSION['user_type'] ?? null;
+}
+
+function getCurrentFarmId(): int {
+    return (int) ($_SESSION['farm_id'] ?? 0);
+}
+
+function requireCurrentFarmId(): int {
+    $farmId = getCurrentFarmId();
+    if ($farmId < 1) {
+        session_unset();
+        session_destroy();
+        header('Location: ' . BASE_URL . '/sign.php');
+        exit();
+    }
+    return $farmId;
+}
+
+function currentFarm(): ?array {
+    static $farm = false;
+    if ($farm !== false) return $farm;
+    $farmId = getCurrentFarmId();
+    if ($farmId < 1) return $farm = null;
+    global $pdo;
+    $stmt = $pdo->prepare('SELECT id, name, slug, logo_path, primary_color, contact_name, contact_email, subscription_plan, subscription_status, trial_ends_at, subscription_ends_at FROM farms WHERE id = ? LIMIT 1');
+    $stmt->execute([$farmId]);
+    return $farm = ($stmt->fetch(PDO::FETCH_ASSOC) ?: null);
+}
+
+function farmBrandName(): string {
+    return currentFarm()['name'] ?? 'Farm Operations';
+}
+
+function farmLogoUrl(): string {
+    $logoPath = currentFarm()['logo_path'] ?? '';
+    if ($logoPath !== '' && preg_match('#^/uploads/farms/[a-zA-Z0-9._/-]+$#', $logoPath)) return BASE_URL . $logoPath;
+    return BASE_URL . '/assets/images/logo.jpg';
+}
+
+function currentUserRoles(): array {
+    static $roles = null;
+    if ($roles !== null) return $roles;
+    if (!isset($_SESSION['user_id']) || getCurrentFarmId() < 1) return $roles = [];
+    global $pdo;
+    $stmt = $pdo->prepare('SELECT r.code FROM user_roles ur INNER JOIN roles r ON r.id = ur.role_id INNER JOIN users u ON u.id = ur.user_id WHERE ur.user_id = ? AND u.farm_id = ?');
+    $stmt->execute([$_SESSION['user_id'], getCurrentFarmId()]);
+    $roles = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    // Supports existing users until the role backfill migration has run.
+    if (!$roles && !empty($_SESSION['user_type'])) $roles = [$_SESSION['user_type']];
+    return $roles;
+}
+
+function hasRole(string ...$requiredRoles): bool {
+    return (bool) array_intersect(currentUserRoles(), $requiredRoles);
+}
+
+function currentAccessLabel(): string {
+    if (isPlatformOwner()) return 'Platform Owner';
+    if (hasRole('farm_admin')) {
+        $labels = [];
+        if (farmHasModule('poultry')) $labels[] = 'Poultry';
+        if (farmHasModule('ruminant')) $labels[] = 'Ruminant';
+        if (farmHasModule('sales')) $labels[] = 'Sales';
+        return 'Farm Administration';
+    }
+    $labels = [];
+    if (hasRole('poultry_manager')) $labels[] = 'Poultry';
+    if (hasRole('ruminant_manager')) $labels[] = 'Ruminant';
+    if (hasRole('sales_rep')) $labels[] = 'Sales';
+    if (hasRole('viewer')) $labels[] = 'Viewer';
+    return $labels ? implode(' • ', $labels) : 'Limited';
+}
+
+function isPlatformOwner(): bool {
+    // platform_admin remains accepted until a legacy account signs in and is
+    // backfilled with the canonical platform_owner role.
+    return hasRole('platform_owner', 'platform_admin');
+}
+
+function isPlatformAdmin(): bool {
+    return isPlatformOwner(); // Compatibility alias for existing integrations.
+}
+
+function farmHasModule(string $module): bool {
+    static $modules = null;
+    if ($modules === null) {
+        $modules = [];
+        if (getCurrentFarmId() > 0) {
+            global $pdo;
+            $stmt = $pdo->prepare('SELECT module_code FROM farm_modules WHERE farm_id = ? AND is_enabled = 1');
+            $stmt->execute([getCurrentFarmId()]);
+            $modules = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        }
+    }
+    return in_array($module, $modules, true);
+}
+
+/** Farm types enabled by the platform owner for the current farm. */
+function enabledFarmTypes(): array {
+    return array_values(array_filter(['poultry', 'ruminant'], static function (string $type): bool {
+        return farmHasModule($type);
+    }));
+}
+
+/** Livestock types the current user may select in forms and report filters. */
+function accessibleFarmTypes(): array {
+    // The platform owner has global operational access, including when the
+    // dedicated owner workspace has no tenant module rows of its own.
+    return isPlatformOwner() ? ['poultry', 'ruminant'] : enabledFarmTypes();
+}
+
+/**
+ * Values that may be stored in a Farm Type field. "Both" is meaningful only
+ * when the farm is entitled to both livestock modules.
+ */
+function allowedFarmTypes(bool $includeBoth = true): array {
+    $types = accessibleFarmTypes();
+    if ($includeBoth && count($types) === 2) $types[] = 'both';
+    return $types;
+}
+
+/** Feed classifications available under the current farm's subscriptions. */
+function allowedFeedCategories(): array {
+    $categories = ['general'];
+    $farmTypes = accessibleFarmTypes();
+    if (in_array('poultry', $farmTypes, true)) {
+        $categories[] = 'layer';
+        $categories[] = 'broiler';
+    }
+    if (in_array('ruminant', $farmTypes, true)) $categories[] = 'ruminant';
+    return $categories;
+}
+
+/**
+ * Sales can have a durable neutral classification independent of livestock
+ * module entitlements. Keep it available whenever the sales module is enabled
+ * so existing general records remain visible and editable after module changes.
+ */
+function allowedSalesFarmTypes(): array {
+    $types = allowedFarmTypes(false);
+    if (farmHasModule('sales')) $types[] = 'general';
+    return $types;
+}
+
+/** Constrain a URL/form farm type to the current farm's subscriptions. */
+function normalizeFarmType(?string $farmType, bool $allowAll = false, bool $includeBoth = true, bool $fallback = true): string {
+    $allowed = allowedFarmTypes($includeBoth);
+    if ($allowAll && count(accessibleFarmTypes()) === 2) array_unshift($allowed, 'all');
+    if ($farmType !== null && in_array($farmType, $allowed, true)) return $farmType;
+    if (!$fallback) return '';
+    // No enabled livestock module means there is no safe report scope. In
+    // particular, never turn an empty entitlement set into the unrestricted
+    // "all" filter, even for roles that normally choose their own filter.
+    return $allowed[0] ?? '';
+}
+
+function requirePlatformOwner(): void {
+    if (!isPlatformOwner()) { http_response_code(403); exit('Owner / Developer access required.'); }
+}
+
+function requirePlatformAdmin(): void {
+    requirePlatformOwner(); // Compatibility alias.
+}
+
+function validTenantRoleCodes(array $roles): array {
+    $allowed = isPlatformOwner() ? ['farm_admin', 'poultry_manager', 'ruminant_manager', 'sales_rep', 'viewer'] : ['poultry_manager', 'ruminant_manager', 'sales_rep', 'viewer'];
+    $roles = array_values(array_unique(array_intersect($roles, $allowed)));
+    if (in_array('poultry_manager', $roles, true) && !farmHasModule('poultry')) $roles = array_diff($roles, ['poultry_manager']);
+    if (in_array('ruminant_manager', $roles, true) && !farmHasModule('ruminant')) $roles = array_diff($roles, ['ruminant_manager']);
+    if (in_array('sales_rep', $roles, true) && !farmHasModule('sales')) $roles = array_diff($roles, ['sales_rep']);
+    return array_values($roles);
+}
+
+// Redirect if not logged in
+function requireLogin() {
+    if (!isLoggedIn()) {
+        header('Location: ' . BASE_URL . '/login.php');
+        exit();
+    }
+
+    // Ensure the user still exists (e.g., was not deleted by an owner)
+    global $pdo;
+    if ($pdo instanceof PDO && isset($_SESSION['user_id'])) {
+        $stmt = $pdo->prepare("SELECT u.id, u.user_type, u.full_name, f.subscription_status,
+                                      MAX(CASE WHEN u.user_type IN ('platform_owner', 'platform_admin') OR r.code IN ('platform_owner', 'platform_admin') THEN 1 ELSE 0 END) AS is_platform_owner
+                               FROM users u
+                               INNER JOIN farms f ON f.id = u.farm_id
+                               LEFT JOIN user_roles ur ON ur.user_id = u.id
+                               LEFT JOIN roles r ON r.id = ur.role_id
+                               WHERE u.id = ? AND u.farm_id = ?
+                               GROUP BY u.id, f.subscription_status
+                               LIMIT 1");
+        $stmt->execute([$_SESSION['user_id'], getCurrentFarmId()]);
+
+        $account = $stmt->fetch(PDO::FETCH_ASSOC);
+        $isPlatformOwnerAccount = $account !== false && (int) ($account['is_platform_owner'] ?? 0) === 1;
+        if ($account !== false) {
+            // Keep session identity synchronized with user administration changes.
+            // A role/name change therefore takes effect on the next navigation or refresh.
+            $_SESSION['user_type'] = $account['user_type'];
+            $_SESSION['full_name'] = $account['full_name'];
+        }
+        if ($account === false || (!$isPlatformOwnerAccount && in_array($account['subscription_status'], ['suspended', 'cancelled'], true))) {
+            session_unset();
+            session_destroy();
+            header('Location: ' . BASE_URL . '/login.php');
+            exit();
+        }
+    }
+}
+
+// Check access permissions
+/**
+ * Viewer accounts are read-only members of their own farm workspace.  Reports
+ * deliberately remain available without a sales-module entitlement so every
+ * subscriber can review sales and expense performance; the entitlement only
+ * controls whether a separate Sales Representative login can be created.
+ */
+function canViewBusinessReports(): bool {
+    return isPlatformOwner() || hasRole('farm_admin', 'poultry_manager', 'ruminant_manager', 'sales_rep', 'viewer');
+}
+
+function requireBusinessReportAccess(): void {
+    if (!canViewBusinessReports()) {
+        http_response_code(403);
+        exit('Report access required.');
+    }
+}
+
+function checkAccess($requiredType) {
+    if (isPlatformOwner()) return true;
+    if ($requiredType === 'poultry') return farmHasModule('poultry') && hasRole('farm_admin', 'poultry_manager');
+    if ($requiredType === 'ruminant') return farmHasModule('ruminant') && hasRole('farm_admin', 'ruminant_manager');
+    if ($requiredType === 'sales') return farmHasModule('sales') && hasRole('farm_admin', 'sales_rep');
+    return false;
+}
+
+// Get farm type for current user
+function getUserFarmType() {
+    if (isPlatformOwner()) return 'all';
+    if (hasRole('farm_admin')) {
+        if (farmHasModule('poultry') && farmHasModule('ruminant')) return 'all';
+        if (farmHasModule('poultry')) return 'poultry';
+        if (farmHasModule('ruminant')) return 'ruminant';
+        return 'both';
+    }
+    if (hasRole('poultry_manager') && !hasRole('ruminant_manager')) return 'poultry';
+    if (hasRole('ruminant_manager') && !hasRole('poultry_manager')) return 'ruminant';
+    if (farmHasModule('poultry') && !farmHasModule('ruminant')) return 'poultry';
+    if (farmHasModule('ruminant') && !farmHasModule('poultry')) return 'ruminant';
+    return 'both';
+}
+
+function csrf_token() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verify_csrf_token($token) {
+    return !empty($token) && !empty($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+?>

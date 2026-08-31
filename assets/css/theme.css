@@ -1,0 +1,713 @@
+/* V2.2.24 — robust platform theme layer. Loaded after page/dashboard CSS. */
+:root { --app-bg:#f4f6f8; --app-surface:#ffffff; --app-surface-2:#f8fafc; --app-text:#172033; --app-muted:#6b7280; --app-border:#dfe5ec; }
+html[data-theme="dark"] { color-scheme: dark; --app-bg:#0f172a; --app-surface:#111827; --app-surface-2:#18212f; --app-text:#e5e7eb; --app-muted:#a8b3c2; --app-border:#334155; }
+html[data-theme="dark"] body { background:var(--app-bg)!important; color:var(--app-text)!important; }
+html[data-theme="dark"] .card, html[data-theme="dark"] .modal-content, html[data-theme="dark"] .dropdown-menu, html[data-theme="dark"] .poultry-panel, html[data-theme="dark"] .inventory-priority-item, html[data-theme="dark"] .reporting-card, html[data-theme="dark"] .content-card { background:var(--app-surface)!important; color:var(--app-text)!important; border-color:var(--app-border)!important; }
+html[data-theme="dark"] .card-body, html[data-theme="dark"] .modal-body, html[data-theme="dark"] .modal-header, html[data-theme="dark"] .modal-footer { color:var(--app-text)!important; border-color:var(--app-border)!important; }
+html[data-theme="dark"] .form-control, html[data-theme="dark"] .form-select, html[data-theme="dark"] input, html[data-theme="dark"] textarea, html[data-theme="dark"] select { background-color:var(--app-surface-2)!important; color:var(--app-text)!important; border-color:#475569!important; }
+html[data-theme="dark"] .form-control::placeholder, html[data-theme="dark"] textarea::placeholder { color:#94a3b8!important; }
+html[data-theme="dark"] .table { --bs-table-bg:var(--app-surface); --bs-table-color:var(--app-text); --bs-table-striped-bg:#172033; --bs-table-striped-color:var(--app-text); --bs-table-hover-bg:#223047; --bs-table-hover-color:#fff; border-color:var(--app-border)!important; color:var(--app-text)!important; }
+html[data-theme="dark"] .table > :not(caption) > * > * { background-color:inherit; color:inherit; border-color:var(--app-border)!important; }
+html[data-theme="dark"] .bg-white, html[data-theme="dark"] .bg-light { background-color:var(--app-surface)!important; color:var(--app-text)!important; }
+html[data-theme="dark"] .text-dark { color:var(--app-text)!important; }
+html[data-theme="dark"] .text-muted, html[data-theme="dark"] .form-text, html[data-theme="dark"] .small.text-muted { color:var(--app-muted)!important; }
+html[data-theme="dark"] .dropdown-item { color:var(--app-text)!important; }
+html[data-theme="dark"] .dropdown-item:hover, html[data-theme="dark"] .dropdown-item:focus { background:#263449!important; color:#fff!important; }
+html[data-theme="dark"] .dataTables_wrapper, html[data-theme="dark"] .dataTables_info, html[data-theme="dark"] .dataTables_length, html[data-theme="dark"] .dataTables_filter, html[data-theme="dark"] .dataTables_paginate { color:var(--app-text)!important; }
+html[data-theme="dark"] .page-link { background:var(--app-surface-2); border-color:var(--app-border); color:#cbd5e1; }
+html[data-theme="dark"] .app-confirm-card { background:var(--app-surface)!important; color:var(--app-text)!important; border-color:var(--app-border)!important; }
+html[data-theme="dark"] .app-confirm-actions { background:var(--app-surface-2)!important; border-color:var(--app-border)!important; }
+html[data-theme="dark"] canvas { filter:none; }
+.theme-quick-toggle { color:rgba(255,255,255,.92)!important; min-width:38px; text-align:center; }
+.theme-quick-toggle:hover { color:#fff!important; background:rgba(255,255,255,.08)!important; border-radius:.5rem; }
+.profitability-filter-help { color:var(--app-muted); font-size:.875rem; margin-top:.15rem; }
+
+/* V2.2.25 — visual/accessibility hardening.
+   Dark mode must switch surfaces and foregrounds as a pair; page-local light
+   backgrounds must never be allowed to combine with dark-theme muted text. */
+:root {
+    --app-surface-3:#eef2f7;
+    --app-text-strong:#111827;
+    --app-text-secondary:#4b5563;
+    --app-text-disabled:#8a94a3;
+    --app-shadow:0 10px 28px rgba(15,23,42,.08);
+    --app-input-bg:#ffffff;
+    --app-hover:#eef5ff;
+}
+html[data-theme="dark"] {
+    --app-bg:#0b1324;
+    --app-surface:#121c2e;
+    --app-surface-2:#182438;
+    --app-surface-3:#213047;
+    --app-text:#f1f5f9;
+    --app-text-strong:#ffffff;
+    --app-text-secondary:#cbd5e1;
+    --app-muted:#aeb9c8;
+    --app-text-disabled:#7f8a9a;
+    --app-border:#34445c;
+    --app-shadow:0 12px 30px rgba(0,0,0,.28);
+    --app-input-bg:#172337;
+    --app-hover:#223551;
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] main,
+html[data-theme="dark"] .container,
+html[data-theme="dark"] .container-fluid,
+html[data-theme="dark"] .content-wrapper,
+html[data-theme="dark"] .main-content {
+    color:var(--app-text)!important;
+}
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6,
+html[data-theme="dark"] label,
+html[data-theme="dark"] .form-label,
+html[data-theme="dark"] strong,
+html[data-theme="dark"] .fw-bold,
+html[data-theme="dark"] .fw-semibold {
+    color:var(--app-text-strong)!important;
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] .small,
+html[data-theme="dark"] small,
+html[data-theme="dark"] .text-secondary {
+    color:var(--app-text-secondary)!important;
+}
+
+html[data-theme="dark"] .text-muted,
+html[data-theme="dark"] .form-text,
+html[data-theme="dark"] .section-eyebrow,
+html[data-theme="dark"] .empty-state-smart {
+    color:var(--app-muted)!important;
+    opacity:1!important;
+}
+
+html[data-theme="dark"] .disabled,
+html[data-theme="dark"] :disabled,
+html[data-theme="dark"] .btn:disabled,
+html[data-theme="dark"] .form-control:disabled,
+html[data-theme="dark"] .form-select:disabled,
+html[data-theme="dark"] .form-control[readonly] {
+    color:var(--app-text-disabled)!important;
+    opacity:.78!important;
+}
+
+/* Dashboard intelligence / operational cards */
+html[data-theme="dark"] .dashboard-card,
+html[data-theme="dark"] .dashboard-stat-card,
+html[data-theme="dark"] .ops-card,
+html[data-theme="dark"] .side-panel-card,
+html[data-theme="dark"] .smart-action-card,
+html[data-theme="dark"] .timeline-item,
+html[data-theme="dark"] .production-tile,
+html[data-theme="dark"] .inventory-priority-item,
+html[data-theme="dark"] .activity-item {
+    background:var(--app-surface)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+    box-shadow:var(--app-shadow)!important;
+}
+
+html[data-theme="dark"] .ops-card .card-header,
+html[data-theme="dark"] .side-panel-card .card-header,
+html[data-theme="dark"] .dashboard-card .card-header,
+html[data-theme="dark"] .card-header:not(.bg-success):not(.bg-primary):not(.bg-danger):not(.bg-warning):not(.bg-info) {
+    background:var(--app-surface-2)!important;
+    color:var(--app-text-strong)!important;
+    border-color:var(--app-border)!important;
+}
+
+html[data-theme="dark"] .smart-action-card:hover,
+html[data-theme="dark"] .timeline-item:hover,
+html[data-theme="dark"] .activity-item:hover {
+    background:var(--app-hover)!important;
+    border-color:#4d6587!important;
+}
+
+/* Stock-control rows were page-local white cards in v2.2.24. */
+html[data-theme="dark"] .stock-control-table tbody tr {
+    background:var(--app-surface-2)!important;
+    box-shadow:0 8px 20px rgba(0,0,0,.22)!important;
+}
+html[data-theme="dark"] .stock-control-table tbody td {
+    background:var(--app-surface-2)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .stock-control-table thead th {
+    color:var(--app-muted)!important;
+}
+html[data-theme="dark"] .inventory-progress,
+html[data-theme="dark"] .progress {
+    background:#29384f!important;
+}
+
+/* Intelligence recommendations and light utility panels */
+html[data-theme="dark"] .alert-light,
+html[data-theme="dark"] .list-group-item,
+html[data-theme="dark"] .accordion-item,
+html[data-theme="dark"] .accordion-button,
+html[data-theme="dark"] .offcanvas,
+html[data-theme="dark"] .popover,
+html[data-theme="dark"] .tooltip-inner {
+    background:var(--app-surface-2)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .accordion-button:not(.collapsed) {
+    background:var(--app-surface-3)!important;
+    color:var(--app-text-strong)!important;
+}
+
+/* Inputs and selectors: keep native controls readable and visibly enabled. */
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+    background-color:var(--app-input-bg)!important;
+    color:var(--app-text)!important;
+    border-color:#4a5b73!important;
+}
+html[data-theme="dark"] .form-control:focus,
+html[data-theme="dark"] .form-select:focus,
+html[data-theme="dark"] input:focus,
+html[data-theme="dark"] textarea:focus,
+html[data-theme="dark"] select:focus {
+    background-color:#1b2a41!important;
+    color:#fff!important;
+    border-color:#62a4ff!important;
+    box-shadow:0 0 0 .2rem rgba(98,164,255,.18)!important;
+}
+
+/* Tables/DataTables */
+html[data-theme="dark"] .table-light,
+html[data-theme="dark"] .table-light > th,
+html[data-theme="dark"] .table-light > td,
+html[data-theme="dark"] table.dataTable tbody tr,
+html[data-theme="dark"] table.dataTable tbody td {
+    background:var(--app-surface)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] table.dataTable.stripe tbody tr.odd,
+html[data-theme="dark"] table.dataTable.display tbody tr.odd,
+html[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background:#162237!important;
+    color:var(--app-text)!important;
+}
+html[data-theme="dark"] .dataTables_wrapper input,
+html[data-theme="dark"] .dataTables_wrapper select {
+    background:var(--app-input-bg)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+
+/* Bootstrap badges with subtle light backgrounds need a paired foreground. */
+html[data-theme="dark"] .bg-success-subtle { background:#143c2d!important; color:#a7f3d0!important; }
+html[data-theme="dark"] .bg-info-subtle { background:#14364a!important; color:#bae6fd!important; }
+html[data-theme="dark"] .bg-warning-subtle { background:#4a3812!important; color:#fde68a!important; }
+html[data-theme="dark"] .bg-danger-subtle { background:#4b1f28!important; color:#fecdd3!important; }
+html[data-theme="dark"] .text-success { color:#63e6a5!important; }
+html[data-theme="dark"] .text-info { color:#7dd3fc!important; }
+html[data-theme="dark"] .text-warning { color:#fcd34d!important; }
+html[data-theme="dark"] .text-danger { color:#fb7185!important; }
+
+/* Pagination / menus / dialogs */
+html[data-theme="dark"] .dropdown-divider,
+html[data-theme="dark"] hr,
+html[data-theme="dark"] .modal-header,
+html[data-theme="dark"] .modal-footer {
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .page-item.disabled .page-link {
+    background:#172235!important;
+    color:var(--app-text-disabled)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .page-item.active .page-link {
+    background:#0d6efd!important;
+    color:#fff!important;
+    border-color:#4e8df8!important;
+}
+
+/* Preserve brand/semantic headers rather than flattening everything. */
+html[data-theme="dark"] .bg-success,
+html[data-theme="dark"] .bg-primary,
+html[data-theme="dark"] .bg-danger,
+html[data-theme="dark"] .bg-warning,
+html[data-theme="dark"] .bg-info,
+html[data-theme="dark"] .navbar,
+html[data-theme="dark"] .card-header.bg-success,
+html[data-theme="dark"] .card-header.bg-primary {
+    color:#fff!important;
+}
+
+/* Avoid old explicit white/near-white inline utility surfaces escaping dark mode. */
+html[data-theme="dark"] [style*="background: #fff"],
+html[data-theme="dark"] [style*="background:#fff"],
+html[data-theme="dark"] [style*="background: white"],
+html[data-theme="dark"] [style*="background-color: #fff"],
+html[data-theme="dark"] [style*="background-color:#fff"] {
+    background:var(--app-surface)!important;
+    color:var(--app-text)!important;
+}
+
+/* V2.2.26 — platform-wide dark-theme consistency pass.
+   This layer is intentionally last. It pairs every commonly reused surface with
+   a readable foreground and explicitly repairs older page-local light styles. */
+html[data-theme="dark"] {
+    --app-bg:#0b1324;
+    --app-surface:#121c2e;
+    --app-surface-2:#182438;
+    --app-surface-3:#213047;
+    --app-surface-elevated:#1b2940;
+    --app-text:#eef4fb;
+    --app-text-strong:#ffffff;
+    --app-text-secondary:#d0d9e5;
+    --app-muted:#b4c0cf;
+    --app-text-disabled:#7f8da0;
+    --app-border:#3b4b63;
+    --app-border-soft:#2c3a50;
+    --app-hover:#223551;
+    --app-input-bg:#172337;
+}
+
+/* Generic surface/foreground pairing. */
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .card-body,
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .modal-body,
+html[data-theme="dark"] .dropdown-menu,
+html[data-theme="dark"] .table-responsive,
+html[data-theme="dark"] .content-card,
+html[data-theme="dark"] .reporting-card,
+html[data-theme="dark"] .poultry-panel,
+html[data-theme="dark"] .metric-card,
+html[data-theme="dark"] .summary-card,
+html[data-theme="dark"] .stock-card {
+    color:var(--app-text)!important;
+}
+
+html[data-theme="dark"] .border,
+html[data-theme="dark"] .border-top,
+html[data-theme="dark"] .border-bottom,
+html[data-theme="dark"] .border-start,
+html[data-theme="dark"] .border-end {
+    border-color:var(--app-border)!important;
+}
+
+/* Do not let Bootstrap light-theme text utilities wash out dark pages. */
+html[data-theme="dark"] .text-body,
+html[data-theme="dark"] .text-body-secondary,
+html[data-theme="dark"] .text-black,
+html[data-theme="dark"] .text-dark,
+html[data-theme="dark"] a.text-dark,
+html[data-theme="dark"] .card a.text-dark {
+    color:var(--app-text)!important;
+}
+html[data-theme="dark"] .text-secondary,
+html[data-theme="dark"] .text-muted,
+html[data-theme="dark"] .form-text,
+html[data-theme="dark"] .help-text,
+html[data-theme="dark"] .helper-text,
+html[data-theme="dark"] .calendar-meta,
+html[data-theme="dark"] .section-eyebrow {
+    color:var(--app-muted)!important;
+    opacity:1!important;
+}
+
+/* Dashboard — explicitly repair every custom light surface seen in QA. */
+html[data-theme="dark"] .dashboard-card,
+html[data-theme="dark"] .smart-command-card,
+html[data-theme="dark"] .ops-card,
+html[data-theme="dark"] .side-panel-card,
+html[data-theme="dark"] .current-month-card,
+html[data-theme="dark"] .chart-container,
+html[data-theme="dark"] .livestock-ticker-row {
+    background:var(--app-surface)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .smart-command-card,
+html[data-theme="dark"] .current-month-card {
+    background:linear-gradient(145deg,var(--app-surface) 0%,var(--app-surface-2) 100%)!important;
+}
+html[data-theme="dark"] .smart-insight,
+html[data-theme="dark"] .smart-action-card,
+html[data-theme="dark"] .timeline-item,
+html[data-theme="dark"] .production-tile,
+html[data-theme="dark"] .activity-item,
+html[data-theme="dark"] .quick-action-btn,
+html[data-theme="dark"] .livestock-pill {
+    background:var(--app-surface-2)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .smart-insight *,
+html[data-theme="dark"] .smart-action-card *,
+html[data-theme="dark"] .timeline-item *,
+html[data-theme="dark"] .production-tile *,
+html[data-theme="dark"] .activity-item *,
+html[data-theme="dark"] .quick-action-btn * {
+    text-shadow:none!important;
+}
+html[data-theme="dark"] .smart-action-card strong,
+html[data-theme="dark"] .smart-action-card .d-block,
+html[data-theme="dark"] .stock-control-table td strong,
+html[data-theme="dark"] .stock-control-table td,
+html[data-theme="dark"] .production-tile strong,
+html[data-theme="dark"] .activity-item strong,
+html[data-theme="dark"] .timeline-item strong {
+    color:var(--app-text-strong)!important;
+}
+html[data-theme="dark"] .smart-action-card small,
+html[data-theme="dark"] .smart-action-card .text-muted,
+html[data-theme="dark"] .production-tile small,
+html[data-theme="dark"] .activity-item small,
+html[data-theme="dark"] .timeline-item small,
+html[data-theme="dark"] .livestock-ticker-title {
+    color:var(--app-muted)!important;
+}
+html[data-theme="dark"] .smart-score-ring {
+    background:
+        radial-gradient(circle at center,var(--app-surface-2) 0 58%,transparent 59%),
+        conic-gradient(var(--bs-__SMART_CLASS__,#198754) calc(var(--score) * 1%),#334155 0)!important;
+}
+html[data-theme="dark"] .smart-score-value { color:var(--app-text-strong)!important; }
+html[data-theme="dark"] .stock-control-table tbody tr,
+html[data-theme="dark"] .stock-control-table tbody td {
+    background:var(--app-surface-2)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border-soft)!important;
+}
+html[data-theme="dark"] .stock-control-table tbody tr:hover td {
+    background:var(--app-hover)!important;
+}
+html[data-theme="dark"] .stock-control-table thead th {
+    color:#c7d2e0!important;
+}
+html[data-theme="dark"] .stock-control-table .fw-bold:not(.text-success):not(.text-danger):not(.text-warning):not(.text-info) {
+    color:var(--app-text-strong)!important;
+}
+html[data-theme="dark"] .inventory-progress { background:#2c3b52!important; }
+
+/* Daily-record/calendar pages. */
+html[data-theme="dark"] .poultry-page,
+html[data-theme="dark"] .poultry-shell,
+html[data-theme="dark"] .ruminant-page {
+    color:var(--app-text)!important;
+}
+html[data-theme="dark"] .calendar-day,
+html[data-theme="dark"] .calendar-cell,
+html[data-theme="dark"] .day-cell,
+html[data-theme="dark"] .calendar-grid > div,
+html[data-theme="dark"] .calendar-grid td {
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .calendar-day:not(.has-record),
+html[data-theme="dark"] .calendar-cell:not(.has-record),
+html[data-theme="dark"] .day-cell:not(.has-record) {
+    background:var(--app-surface-2)!important;
+    color:var(--app-text-secondary)!important;
+}
+html[data-theme="dark"] .calendar-day.has-record,
+html[data-theme="dark"] .calendar-cell.has-record,
+html[data-theme="dark"] .day-cell.has-record {
+    color:var(--app-text-strong)!important;
+}
+
+/* Tables: protect readable foregrounds even when old page CSS uses !important. */
+html[data-theme="dark"] .table,
+html[data-theme="dark"] table,
+html[data-theme="dark"] .poultry-table,
+html[data-theme="dark"] table.dataTable {
+    color:var(--app-text)!important;
+}
+html[data-theme="dark"] .table > :not(caption) > * > *,
+html[data-theme="dark"] .poultry-table > :not(caption) > * > *,
+html[data-theme="dark"] table.dataTable tbody th,
+html[data-theme="dark"] table.dataTable tbody td {
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > *,
+html[data-theme="dark"] table.dataTable tbody tr.odd > * {
+    background-color:#162237!important;
+    color:var(--app-text)!important;
+}
+html[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(even) > *,
+html[data-theme="dark"] table.dataTable tbody tr.even > * {
+    background-color:var(--app-surface)!important;
+    color:var(--app-text)!important;
+}
+html[data-theme="dark"] .table-secondary,
+html[data-theme="dark"] .table-secondary > th,
+html[data-theme="dark"] .table-secondary > td,
+html[data-theme="dark"] .table-secondary > * > * {
+    background:var(--app-surface-3)!important;
+    color:var(--app-text-strong)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] .table-dark {
+    --bs-table-bg:#0b3827;
+    --bs-table-color:#fff;
+    --bs-table-border-color:#315443;
+}
+html[data-theme="dark"] .dataTables_wrapper label,
+html[data-theme="dark"] .dataTables_wrapper .dataTables_info,
+html[data-theme="dark"] .dataTables_wrapper .dataTables_length,
+html[data-theme="dark"] .dataTables_wrapper .dataTables_filter {
+    color:var(--app-text-secondary)!important;
+}
+
+/* Forms, native select option popups, and add/edit modals. */
+html[data-theme="dark"] .input-group-text,
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    background:var(--app-input-bg)!important;
+    color:var(--app-text)!important;
+    border-color:#53637a!important;
+}
+html[data-theme="dark"] select option,
+html[data-theme="dark"] .form-select option {
+    background:#172337!important;
+    color:#f8fafc!important;
+}
+html[data-theme="dark"] .form-control[readonly]:not(:disabled),
+html[data-theme="dark"] .form-select[readonly]:not(:disabled) {
+    background:#1b2940!important;
+    color:var(--app-text-secondary)!important;
+    opacity:1!important;
+}
+html[data-theme="dark"] .modal-header,
+html[data-theme="dark"] .modal-footer {
+    background:var(--app-surface-2)!important;
+}
+html[data-theme="dark"] .modal-title { color:var(--app-text-strong)!important; }
+html[data-theme="dark"] .btn-close { filter:invert(1) grayscale(1) brightness(1.8); opacity:.85; }
+
+/* Bootstrap light alerts/buttons/status pills that otherwise retain washed-out light values. */
+html[data-theme="dark"] .alert-secondary { background:#26344a!important; color:#e2e8f0!important; border-color:#46566d!important; }
+html[data-theme="dark"] .alert-info { background:#12384a!important; color:#d6f4ff!important; border-color:#28627a!important; }
+html[data-theme="dark"] .alert-warning { background:#493810!important; color:#ffefb0!important; border-color:#786225!important; }
+html[data-theme="dark"] .alert-success { background:#123b2b!important; color:#c8f7dc!important; border-color:#2f6a50!important; }
+html[data-theme="dark"] .alert-danger { background:#4a1e29!important; color:#ffd6de!important; border-color:#7b3545!important; }
+html[data-theme="dark"] .btn-light {
+    background:#2b3a50!important;
+    color:#f1f5f9!important;
+    border-color:#526178!important;
+}
+html[data-theme="dark"] .btn-outline-secondary {
+    color:#d4dde8!important;
+    border-color:#65748a!important;
+}
+html[data-theme="dark"] .btn-outline-secondary:hover {
+    background:#34445c!important;
+    color:#fff!important;
+}
+html[data-theme="dark"] .badge.bg-light,
+html[data-theme="dark"] .text-bg-light {
+    background:#2b3a50!important;
+    color:#f1f5f9!important;
+}
+
+/* Management/report utility surfaces. */
+html[data-theme="dark"] .report-controls,
+html[data-theme="dark"] .filter-panel,
+html[data-theme="dark"] .filters-card,
+html[data-theme="dark"] .toolbar,
+html[data-theme="dark"] .toolbar-panel {
+    background:var(--app-surface)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+
+/* Inline pale surfaces: catch common legacy variants not covered by v2.2.25. */
+html[data-theme="dark"] [style*="background: #ffffff"],
+html[data-theme="dark"] [style*="background:#ffffff"],
+html[data-theme="dark"] [style*="background-color: #ffffff"],
+html[data-theme="dark"] [style*="background-color:#ffffff"],
+html[data-theme="dark"] [style*="background: #f8"],
+html[data-theme="dark"] [style*="background:#f8"],
+html[data-theme="dark"] [style*="background: #f9"],
+html[data-theme="dark"] [style*="background:#f9"] {
+    background:var(--app-surface-2)!important;
+    color:var(--app-text)!important;
+}
+
+
+/* V2.2.27 — cache-bust validation + critical dashboard foreground/surface pairing. */
+html[data-theme="dark"] .stock-control-table tbody tr,
+html[data-bs-theme="dark"] .stock-control-table tbody tr {
+    background: var(--app-surface-2) !important;
+}
+html[data-theme="dark"] .stock-control-table tbody td,
+html[data-bs-theme="dark"] .stock-control-table tbody td {
+    background-color: var(--app-surface-2) !important;
+    color: var(--app-text) !important;
+}
+html[data-theme="dark"] .stock-control-table tbody td:first-child strong,
+html[data-bs-theme="dark"] .stock-control-table tbody td:first-child strong,
+html[data-theme="dark"] .smart-action-card strong,
+html[data-bs-theme="dark"] .smart-action-card strong {
+    color: var(--app-text-strong) !important;
+}
+html[data-theme="dark"] .smart-action-card,
+html[data-bs-theme="dark"] .smart-action-card {
+    background: var(--app-surface-2) !important;
+    color: var(--app-text) !important;
+}
+html[data-theme="dark"] .smart-action-card small,
+html[data-bs-theme="dark"] .smart-action-card small {
+    color: var(--app-text-secondary) !important;
+}
+
+/* V2.2.28 — production-module contrast completion.
+   Page-local production CSS still used !important light gradients and legacy
+   calendar colours. These selectors deliberately match/exceed that specificity. */
+html[data-theme="dark"] body.poultry-page .poultry-panel > .card-body,
+html[data-theme="dark"] body.ruminant-page .poultry-panel > .card-body,
+html[data-theme="dark"] body.poultry-page .card-body.bg-light,
+html[data-theme="dark"] body.ruminant-page .card-body.bg-light {
+    background:linear-gradient(180deg,var(--app-surface) 0%,var(--app-surface-2) 100%)!important;
+    color:var(--app-text)!important;
+}
+
+/* Production intelligence/info strips sometimes retain light-mode surfaces. */
+html[data-theme="dark"] body.poultry-page .alert,
+html[data-theme="dark"] body.ruminant-page .alert,
+html[data-theme="dark"] body.poultry-page .intelligence-card,
+html[data-theme="dark"] body.ruminant-page .intelligence-card,
+html[data-theme="dark"] body.poultry-page .smart-intelligence,
+html[data-theme="dark"] body.ruminant-page .smart-intelligence {
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] body.poultry-page .alert-light,
+html[data-theme="dark"] body.ruminant-page .alert-light {
+    background:var(--app-surface-2)!important;
+}
+
+/* Legacy/all-cycle calendar must stay a dark surface. The light cyan legacy
+   background from style.css made dates and record counts almost disappear. */
+html[data-theme="dark"] .calendar-legacy .calendar-day,
+html[data-theme="dark"] .calendar-legacy .calendar-day.has-record,
+html[data-theme="dark"] .calendar-legacy .calendar-day.has-mortality {
+    background:var(--app-surface-2)!important;
+    border-color:var(--app-border)!important;
+    opacity:1!important;
+}
+html[data-theme="dark"] .calendar-legacy .calendar-day.has-record {
+    background:#20344a!important;
+    border-color:#52738f!important;
+}
+html[data-theme="dark"] .calendar-legacy .calendar-day.has-mortality {
+    background:#352635!important;
+    border-color:#8d5361!important;
+}
+html[data-theme="dark"] .calendar-day .calendar-date,
+html[data-theme="dark"] .calendar-legacy .calendar-date {
+    color:var(--app-text-strong)!important;
+    opacity:1!important;
+}
+html[data-theme="dark"] .calendar-day .calendar-meta,
+html[data-theme="dark"] .calendar-legacy .calendar-meta,
+html[data-theme="dark"] .calendar-weekday {
+    color:#c5d0de!important;
+    opacity:1!important;
+}
+html[data-theme="dark"] .calendar-day.no-action {
+    opacity:1!important;
+}
+
+/* Animal profile uses the production panel but its profile body was being
+   forced back to a light gradient. Keep labels secondary and values strong. */
+html[data-theme="dark"] body.ruminant-page .poultry-panel .card-body .fw-semibold,
+html[data-theme="dark"] body.ruminant-page .poultry-panel .card-body > .row > [class*="col-"] > div:not(.text-muted) {
+    color:var(--app-text-strong)!important;
+}
+html[data-theme="dark"] body.ruminant-page .poultry-panel .card-body small.text-muted {
+    color:#b8c4d3!important;
+}
+
+/* Expense/feed/daily module surfaces and nested cards. */
+html[data-theme="dark"] body.poultry-page .poultry-panel .card,
+html[data-theme="dark"] body.ruminant-page .poultry-panel .card,
+html[data-theme="dark"] body.poultry-page .poultry-panel .table-responsive,
+html[data-theme="dark"] body.ruminant-page .poultry-panel .table-responsive {
+    background:var(--app-surface)!important;
+    color:var(--app-text)!important;
+    border-color:var(--app-border)!important;
+}
+html[data-theme="dark"] body.poultry-page .poultry-panel td,
+html[data-theme="dark"] body.ruminant-page .poultry-panel td,
+html[data-theme="dark"] body.poultry-page .poultry-panel th,
+html[data-theme="dark"] body.ruminant-page .poultry-panel th {
+    color:var(--app-text)!important;
+}
+
+/* V2.2.29 — final production intelligence + inventory sticky-action contrast.
+   These components have page-local light-mode backgrounds, so dark mode must
+   override both the surface and the foreground as one pair. */
+html[data-theme="dark"] .smart-poultry-note,
+html[data-bs-theme="dark"] .smart-poultry-note {
+    background: linear-gradient(135deg, #16243a, #1b2b43) !important;
+    color: #eef4fb !important;
+    border-color: #34516f !important;
+    border-left-color: #4f9cff !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .22) !important;
+}
+html[data-theme="dark"] .smart-poultry-note .fw-bold,
+html[data-bs-theme="dark"] .smart-poultry-note .fw-bold {
+    color: #ffffff !important;
+}
+html[data-theme="dark"] .smart-poultry-note .small,
+html[data-bs-theme="dark"] .smart-poultry-note .small {
+    color: #c8d5e5 !important;
+    opacity: 1 !important;
+}
+html[data-theme="dark"] .smart-poultry-note .bi,
+html[data-bs-theme="dark"] .smart-poultry-note .bi {
+    color: #66a9ff !important;
+}
+
+/* Inventory's sticky Actions column was explicitly pinned to white in
+   inventory.php. Keep the sticky behaviour, but use the dark table surface. */
+@media (min-width: 768px) {
+    html[data-theme="dark"] .inventory-table > tbody > tr:not(.child) > td:last-child,
+    html[data-bs-theme="dark"] .inventory-table > tbody > tr:not(.child) > td:last-child {
+        background: var(--app-surface) !important;
+        color: var(--app-text) !important;
+        border-color: var(--app-border) !important;
+    }
+    html[data-theme="dark"] .inventory-table > thead > tr > th:last-child,
+    html[data-bs-theme="dark"] .inventory-table > thead > tr > th:last-child {
+        background: #162237 !important;
+        color: var(--app-text-strong) !important;
+        border-color: var(--app-border) !important;
+    }
+}
+
+/* V2.2.30 — Inventory health score contrast completion */
+html[data-theme="dark"] .inventory-score-ring,
+html[data-bs-theme="dark"] .inventory-score-ring {
+    background:
+        radial-gradient(circle at center, var(--app-surface) 0 58%, transparent 59%),
+        conic-gradient(var(--score-color) calc(var(--score) * 1%), var(--app-border) 0) !important;
+    color: var(--app-text-strong) !important;
+}
+html[data-theme="dark"] .inventory-score-ring strong,
+html[data-bs-theme="dark"] .inventory-score-ring strong {
+    color: var(--app-text-strong) !important;
+    opacity: 1 !important;
+}
