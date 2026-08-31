@@ -1,8 +1,14 @@
 <?php require_once(dirname(__DIR__) . '/init.php'); ?>
 <?php
 require_once(__DIR__ . '/../config.php');
+require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');
 requireLogin();
 requireBusinessReportAccess();
+$pdfRequested = pdf_report_is_requested();
+if ($pdfRequested) {
+    pdf_report_begin();
+}
+
 $tenantFarmId = requireCurrentFarmId();
 
 $userType = getUserType();
@@ -141,6 +147,7 @@ foreach ($stockRows as $row) {
         $stockSummary[$row['farm_type']] = ['items' => (int)$row['items'], 'stock_value' => (float)$row['stock_value']];
     }
 }
+$pdfReportUrl = pdf_report_current_url();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -173,7 +180,7 @@ foreach ($stockRows as $row) {
                         <option value="<?php echo $y; ?>" <?php echo (string)$y === (string)$year ? 'selected' : ''; ?>><?php echo $y; ?></option>
                     <?php endfor; ?>
                 </select>
-                <button class="btn btn-primary" id="printBtn"><i class="bi bi-printer"></i> Print Report</button>
+                <a class="btn btn-primary" id="printBtn" href="<?php echo htmlspecialchars($pdfReportUrl); ?>" target="_blank"><i class="bi bi-file-earmark-pdf"></i> PDF Report</a>
             </div>
         </div>
         <div class="card-body">
@@ -227,7 +234,11 @@ $('#farmTypeFilter, #reportMode, #monthFilter, #yearFilter').on('change', functi
     $('#yearFilter').toggle(mode === 'yearly');
     applyFilters();
 });
-$('#printBtn').on('click', () => PrintManager.print(););
 </script>
 </body>
 </html>
+<?php
+if ($pdfRequested) {
+    pdf_report_finish('poultry-ruminant-report-' . preg_replace('/[^0-9A-Za-z-]+/', '-', strtolower($periodLabel)) . '.pdf', 'landscape', 'Poultry & Ruminant Report - ' . $periodLabel);
+}
+?>

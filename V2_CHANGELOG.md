@@ -120,3 +120,10 @@ Role-limit count correction, exact account-limit semantics, duplicate Sales navi
 ## V2.2.36 — Sales Expense Delegation Fix
 - Fixed an authorization short-circuit that blocked Sales Representatives from delegated Layer, Broiler and Ruminant expense pages even when the tenant permission matrix allowed them.
 - Preserved child-aware Poultry/Ruminant navigation and exact role quotas from V2.2.35.
+
+## V2.2.42 — Centralized Application PDF Report Engine
+- Added centralized Dompdf-based PDF service.
+- Migrated Sales, Expense, and Poultry & Ruminant reports from browser print to application-generated PDFs.
+- Removed browser URL/header/footer dependency from migrated official reports.
+- Replaced the broken Poultry & Ruminant Print Report action with a direct PDF report action.
+- Preserved V2.2.40 receivable protections and existing report query logic.

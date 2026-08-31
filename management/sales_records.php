@@ -1,8 +1,14 @@
 <?php require_once(dirname(__DIR__) . '/init.php'); ?>
 <?php
 require_once(__DIR__ . '/../config.php');
+require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');
 requireLogin();
 requireBusinessReportAccess();
+$pdfRequested = pdf_report_is_requested();
+if ($pdfRequested) {
+    pdf_report_begin();
+}
+
 require_once(__DIR__ . '/../lib/attribution.php');
 require_once(__DIR__ . '/../lib/sales_receivables.php');
 require_once(__DIR__ . '/../lib/sales_allocation.php');
@@ -529,6 +535,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit();
     }
 }
+$pdfReportUrl = pdf_report_current_url();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1335,14 +1342,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             applyFilters();
         });
 
-        $('#printMonthlyBtn').on('click', function() {
-            PrintManager.print();
-        });
-
-        $('#printYearlyBtn').on('click', function() {
-            PrintManager.print();
-        });
-
         // Auto-calculate total amounts
         setupTotalCalculator('#addQuantity', '#addUnitPrice', '#totalAmount');
         setupTotalCalculator('#editSaleQuantity', '#editSalePrice', '#editTotalAmount');
@@ -1405,3 +1404,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </script>
 </body>
 </html>
+<?php
+if ($pdfRequested) {
+    pdf_report_finish('sales-report-' . preg_replace('/[^0-9A-Za-z-]+/', '-', strtolower($periodLabel)) . '.pdf', 'landscape', 'Sales Report - ' . $periodLabel);
+}
+?>

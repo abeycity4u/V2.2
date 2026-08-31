@@ -1,0 +1,12 @@
+{
+  "name": "renee-farms/platform-v2",
+  "description": "Renee Farms V2.2 farm management platform",
+  "type": "project",
+  "require": {
+    "dompdf/dompdf": "^3.0"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  }
+}

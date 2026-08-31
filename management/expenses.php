@@ -1,6 +1,7 @@
 <?php require_once(dirname(__DIR__) . '/init.php'); ?>
 <?php
 require_once(__DIR__ . '/../config.php');
+require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');
 require_once(__DIR__ . '/../includes/functions.php');
 require_once(__DIR__ . '/../lib/attribution.php');
 requireLogin();
@@ -78,6 +79,7 @@ foreach ($expenses as $expense) {
     $categoryTotals[$expense['category']] = ($categoryTotals[$expense['category']] ?? 0) + $lineTotal;
     $farmTypeTotals[$expense['farm_type']] = ($farmTypeTotals[$expense['farm_type']] ?? 0) + $lineTotal;
 }
+$pdfReportUrl = pdf_report_current_url();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -439,10 +441,6 @@ foreach ($expenses as $expense) {
         applyFilters();
     });
 
-    $('#printMonthlyBtn, #printYearlyBtn').on('click', function() {
-        PrintManager.print();
-    });
-
     <?php if ($canManageExpenses): ?>
     attachEditModal({
         buttonSelector: '.edit-expense-btn',
@@ -503,3 +501,8 @@ foreach ($expenses as $expense) {
     </script>
 </body>
 </html>
+<?php
+if ($pdfRequested) {
+    pdf_report_finish('expense-report-' . preg_replace('/[^0-9A-Za-z-]+/', '-', strtolower($periodLabel)) . '.pdf', 'landscape', 'Expense Report - ' . $periodLabel);
+}
+?>
