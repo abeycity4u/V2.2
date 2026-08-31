@@ -1,0 +1,45 @@
+name: Bootstrap source tree
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bootstrap-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Expand V2.2.39 deployment archive into source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP='farm-platform-v2-v2.2.39-receivables-cash-basis-reconciliation.zip'
+          test -f "$ZIP"
+          rm -rf .bootstrap-src
+          mkdir .bootstrap-src
+          unzip -q "$ZIP" -d .bootstrap-src
+          rsync -a .bootstrap-src/ ./
+          rm -rf .bootstrap-src
+          rm -f "$ZIP"
+
+      - name: Commit unpacked source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No source migration changes to commit.'
+            exit 0
+          fi
+          git commit -m 'chore: migrate V2.2.39 deployment archive to source tree'
+          git push origin HEAD:main
