@@ -49,8 +49,10 @@ final class PdfReportService
     {
         $orientation = strtolower($orientation) === 'landscape' ? 'landscape' : 'portrait';
 
-        // Scripts are unnecessary for PDF output and can cause malformed output.
+        // Scripts and icon-font tags are unnecessary for PDF output and can cause malformed glyphs.
         $html = preg_replace('#<script\b[^>]*>.*?</script>#is', '', $html) ?? $html;
+        $html = preg_replace('#<i\b[^>]*>.*?</i>#is', '', $html) ?? $html;
+        $html = $this->stripActionsColumns($html);
 
         $style = $this->documentCss($orientation);
         if (stripos($html, '</head>') !== false) {
@@ -99,6 +101,39 @@ final class PdfReportService
         exit;
     }
 
+    private function stripActionsColumns(string $html): string
+    {
+        if (!class_exists('DOMDocument')) return $html;
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$loaded) return $html;
+
+        foreach (iterator_to_array($dom->getElementsByTagName('table')) as $table) {
+            $rows = $table->getElementsByTagName('tr');
+            $indexes = [];
+            if ($rows->length > 0) {
+                $headers = $rows->item(0)->getElementsByTagName('th');
+                foreach ($headers as $i => $th) {
+                    if (strcasecmp(trim($th->textContent), 'Actions') === 0) $indexes[] = $i;
+                }
+            }
+            rsort($indexes);
+            foreach ($indexes as $index) {
+                foreach (iterator_to_array($rows) as $row) {
+                    $cells = [];
+                    foreach ($row->childNodes as $child) {
+                        if ($child instanceof DOMElement && in_array(strtolower($child->tagName), ['th', 'td'], true)) $cells[] = $child;
+                    }
+                    if (isset($cells[$index])) $row->removeChild($cells[$index]);
+                }
+            }
+        }
+        return $dom->saveHTML() ?: $html;
+    }
+
     private function documentCss(string $orientation): string
     {
         return <<<CSS
@@ -112,7 +147,7 @@ nav, .navbar, #appNavbar, .no-print, .report-controls, button, .btn, .modal, .of
 .card, .card-body, .card-header, .bg-light, .bg-dark, .bg-primary, .bg-success, .bg-danger, .bg-warning, .bg-info {
   background: #fff !important; color: #1f2937 !important; box-shadow: none !important; border-color: #d1d5db !important;
 }
-.card { border: 1px solid #d1d5db !important; margin-bottom: 8px !important; page-break-inside: avoid; }
+.card { border: 1px solid #d1d5db !important; margin-bottom: 8px !important; }
 .card-header { border-bottom: 1px solid #d1d5db !important; padding: 7px 9px !important; }
 .card-body { padding: 8px 9px !important; }
 h1, h2, h3, h4, h5, h6 { color: #111827 !important; margin-top: 0; }

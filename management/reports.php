@@ -1,8 +1,11 @@
 <?php require_once(dirname(__DIR__) . '/init.php'); ?>
 <?php
 require_once(__DIR__ . '/../config.php');
+require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');
 requireLogin();
 requireBusinessReportAccess();
+$pdfRequested = pdf_report_is_requested();
+if ($pdfRequested) { pdf_report_begin(); }
 $tenantFarmId = requireCurrentFarmId();
 
 $userType = getUserType();
@@ -249,6 +252,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     fclose($output);
     exit();
 }
+$pdfReportUrl = pdf_report_current_url();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -293,9 +297,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
                                 <option value="<?php echo $farmType; ?>" selected><?php echo ucfirst($farmType); ?> Only</option>
                                 <?php endif; ?>
                             </select>
-                            <button class="btn btn-primary" onclick="printReport()">
-                                <i class="bi bi-printer"></i> Print Report
-                            </button>
+                            <a class="btn btn-primary" href="<?php echo htmlspecialchars($pdfReportUrl); ?>" target="_blank">
+                                <i class="bi bi-file-earmark-pdf"></i> PDF Report
+                            </a>
                             <button class="btn btn-success" onclick="exportToExcel()">
                                 <i class="bi bi-file-earmark-excel"></i> Export Excel
                             </button>
@@ -311,7 +315,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
                                         <h5>Monthly Profit/Loss Analysis</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="profitChart" height="100"></canvas>
+                                        <?php if ($pdfRequested): ?>
+<table class="table table-bordered"><thead><tr><th>Month</th><th>Farm Type</th><th>Net Profit</th></tr></thead><tbody><?php foreach ($profitData as $row): ?><tr><td><?php echo date('M Y', strtotime($row['month'] . '-01')); ?></td><td><?php echo ucfirst($row['farm_type']); ?></td><td>₦<?php echo number_format($row['net_profit'], 2); ?></td></tr><?php endforeach; ?></tbody></table>
+<?php else: ?><canvas id="profitChart" height="100"></canvas><?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -424,7 +430,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
                                         <h5>Top Selling Products</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="productsChart"></canvas>
+                                        <?php if ($pdfRequested): ?>
+<table class="table table-bordered"><thead><tr><th>Product</th><th>Quantity</th><th>Revenue</th></tr></thead><tbody><?php foreach ($topProducts as $product): ?><tr><td><?php echo htmlspecialchars($product['product_type']); ?></td><td><?php echo number_format((float)$product['total_quantity'], 2); ?></td><td>₦<?php echo number_format((float)$product['total_revenue'], 2); ?></td></tr><?php endforeach; ?><?php if (empty($topProducts)): ?><tr><td colspan="3">No sales data for this period.</td></tr><?php endif; ?></tbody></table>
+<?php else: ?><canvas id="productsChart"></canvas><?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -434,7 +442,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
                                         <h5>Expense Breakdown</h5>
                                     </div>
                                     <div class="card-body">
-                                        <canvas id="expensesChart"></canvas>
+                                        <?php if ($pdfRequested): ?>
+<table class="table table-bordered"><thead><tr><th>Category</th><th>Total Amount</th></tr></thead><tbody><?php foreach ($expenses as $expense): ?><tr><td><?php echo ucfirst(htmlspecialchars($expense['category'])); ?></td><td>₦<?php echo number_format((float)$expense['total_amount'], 2); ?></td></tr><?php endforeach; ?><?php if (empty($expenses)): ?><tr><td colspan="2">No expense data for this period.</td></tr><?php endif; ?></tbody></table>
+<?php else: ?><canvas id="expensesChart"></canvas><?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -466,12 +476,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         const farmType = document.getElementById('farmTypeFilter').value;
         window.location.href = `reports.php?year=${year}&farm_type=${farmType}`;
     }
-    
-    function printReport() {
-        PrintManager.print();
-    }
-    
-    function exportToExcel() {
+function exportToExcel() {
         const year = document.getElementById('yearFilter').value;
         const farmType = document.getElementById('farmTypeFilter').value;
         window.location.href = `reports.php?year=${year}&farm_type=${farmType}&export=excel`;
@@ -588,3 +593,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     </script>
 </body>
 </html>
+<?php
+if ($pdfRequested) {
+    pdf_report_finish('farm-reports-' . preg_replace('/[^0-9A-Za-z-]+/', '-', strtolower((string)$year)) . '.pdf', 'landscape', 'Farm Reports & Analytics - ' . $year);
+}
+?>

@@ -5,6 +5,8 @@ require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');
 require_once(__DIR__ . '/../includes/functions.php');
 require_once(__DIR__ . '/../lib/attribution.php');
 requireLogin();
+$pdfRequested = pdf_report_is_requested();
+if ($pdfRequested) { pdf_report_begin(); }
 if (!isPlatformOwner() && !hasRole('farm_admin') && !hasPermission(getUserType(), 'expenses')) { header('Location: ' . BASE_URL . '/no_access.php'); exit(); }
 $tenantFarmId = requireCurrentFarmId();
 
