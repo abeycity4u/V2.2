@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/bootstrap-source.yml'
+  issues:
+    types: [opened]
   workflow_dispatch:
 
 permissions:
@@ -12,6 +14,7 @@ permissions:
 
 jobs:
   unpack:
+    if: github.event_name != 'issues' || github.event.issue.title == 'BOOTSTRAP_SOURCE_TREE'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
