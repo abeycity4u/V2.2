@@ -187,7 +187,7 @@ $pdfReportUrl = pdf_report_current_url();
                                         <th>Description</th>
                                         <th>Recorded By</th>
                                         <?php if ($canManageExpenses): ?>
-                                        <th>Actions</th>
+                                        <th class="no-print">Actions</th>
                                         <?php endif; ?>
                                     </tr>
                                 </thead>
@@ -235,7 +235,7 @@ $pdfReportUrl = pdf_report_current_url();
                                                 <small><?php echo $expense['full_name']; ?></small>
                                             </td>
                                             <?php if ($canManageExpenses): ?>
-                                            <td>
+                                            <td class="no-print">
                                                 <button class="btn btn-sm btn-outline-primary edit-expense-btn"
                                                         data-id="<?php echo $expense['id']; ?>"
                                                         data-date="<?php echo $expense['expense_date']; ?>"

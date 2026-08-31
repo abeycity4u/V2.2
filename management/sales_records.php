@@ -684,9 +684,16 @@ $pdfReportUrl = pdf_report_current_url();
                                             <?php endforeach; ?>
                                         </select>
                                     </form>
-                                    <button class="btn btn-outline-primary btn-sm" id="printDebtBtn" type="button">
-                                        <i class="bi bi-printer me-1"></i>Print Debt History
+                                    <?php if ($selectedCustomer !== ''): ?>
+                                    <a class="btn btn-outline-primary btn-sm" id="printDebtBtn"
+                                       href="debt_history_pdf.php?customer=<?php echo rawurlencode($selectedCustomer); ?>" target="_blank">
+                                        <i class="bi bi-file-earmark-pdf me-1"></i>PDF Debt History
+                                    </a>
+                                    <?php else: ?>
+                                    <button class="btn btn-outline-primary btn-sm" type="button" disabled>
+                                        <i class="bi bi-file-earmark-pdf me-1"></i>PDF Debt History
                                     </button>
+                                    <?php endif; ?>
                                     <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
                                         <i class="bi bi-cash-coin me-1"></i>Record Payment
                                     </button>
@@ -1347,10 +1354,6 @@ $pdfReportUrl = pdf_report_current_url();
         setupTotalCalculator('#editSaleQuantity', '#editSalePrice', '#editTotalAmount');
         $('#addQuantity, #addUnitPrice, #addPaymentReceived').on('input', updateOutstandingField);
         updateOutstandingField();
-
-        $('#printDebtBtn').on('click', function() {
-            PrintManager.print();
-        });
 
         $('.edit-ledger-btn').on('click', function() {
             $('#editLedgerId').val($(this).data('id'));

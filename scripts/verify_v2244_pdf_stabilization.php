@@ -12,7 +12,7 @@ $must(str_contains($reports, 'PDF Report'), 'Reports & Analytics exposes PDF Rep
 $must(str_contains($reports, 'pdf_report_finish('), 'Reports & Analytics streams application PDF');
 $must(!str_contains($reports, 'PrintManager.print();'), 'Reports & Analytics no longer uses browser print');
 $service = file_get_contents($root . '/includes/pdf/PdfReportService.php');
-$must(str_contains($service, 'stripActionsColumns'), 'Central PDF service strips Actions columns');
+$must(str_contains($service, '.no-print'), 'Central PDF service supports no-print Actions columns');
 $must(str_contains($service, "preg_replace('#<i"), 'Central PDF service strips icon-font tags');
 $must(count(glob($root . '/DEPLOYMENT_V2.2.*.md')) === 0, 'Version-specific deployment docs consolidated');
 $must(str_contains(file_get_contents($root . '/DEPLOYMENT.md'), 'V2.2.44'), 'DEPLOYMENT.md includes V2.2.44');

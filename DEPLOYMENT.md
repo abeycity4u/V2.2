@@ -689,3 +689,13 @@ php scripts/verify_v2240_receivable_payment_overpayment_protection.php
 - Relaxed generic card page-break rules to reduce blank/orphan pages.
 - Consolidated version-specific deployment Markdown files into this single `DEPLOYMENT.md`.
 - Receivables/accounting logic unchanged.
+
+---
+
+## V2.2.45 — PDF Content Recovery & Debt History Migration
+
+- Fixed application-generated PDFs rendering only the Renee Farms footer after V2.2.44.
+- Removed the whole-document `DOMDocument` rewrite from the central PDF service; it was the common regression across all migrated PDFs.
+- Actions columns on migrated expense pages now use explicit `no-print` markup.
+- Sales customer debt history now uses a dedicated application-generated PDF instead of browser printing.
+- Receivables accounting logic is unchanged.
