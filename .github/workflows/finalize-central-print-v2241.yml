@@ -1,0 +1,65 @@
+name: Finalize V2.2.41 print CSS consolidation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/finalize-central-print-v2241.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove remaining duplicate print CSS
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('assets/css/dashboard.css')
+          s=p.read_text()
+          marker='/* Print Styles */'
+          pos=s.find(marker)
+          if pos >= 0:
+              media=s.find('@media print',pos)
+              brace=s.find('{',media)
+              depth=0; end=None
+              for i in range(brace,len(s)):
+                  if s[i]=='{': depth+=1
+                  elif s[i]=='}':
+                      depth-=1
+                      if depth==0:
+                          end=i+1; break
+              if end is None:
+                  raise SystemExit('Could not parse dashboard print block')
+              while end < len(s) and s[end] in '\r\n': end+=1
+              s=s[:pos]+s[end:]
+              p.write_text(s)
+
+          audit=Path('docs/PRINT_ARCHITECTURE_AUDIT.md')
+          a=audit.read_text()
+          note='''\n## Post-centralization consolidation\n\n- Legacy print blocks were removed from both `assets/css/style.css` and `assets/css/dashboard.css`.\n- `assets/css/print.css` is now the only application-owned `@media print` source.\n- Runtime page orientation is owned by `assets/js/print-manager.js`.\n'''
+          if '## Post-centralization consolidation' not in a:
+              audit.write_text(a+note)
+
+          v=Path('scripts/verify_v2241_central_print_architecture.php')
+          s=v.read_text()
+          needle="$must(!str_contains($style,'/* Print Styles */'),'legacy global print block removed from style.css');"
+          add="""$must(!str_contains($style,'/* Print Styles */'),'legacy global print block removed from style.css');\n$dashboard=file_get_contents($root.'/assets/css/dashboard.css');\n$must(!str_contains($dashboard,'@media print'),'dashboard no longer carries duplicate print CSS');"""
+          if 'dashboard no longer carries duplicate print CSS' not in s:
+              s=s.replace(needle,add)
+              v.write_text(s)
+          PY
+          php scripts/verify_v2241_central_print_architecture.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/finalize-central-print-v2241.yml
+          git add -A
+          git commit -m 'refactor: complete V2.2.41 centralized print CSS cleanup'
+          git push origin HEAD:main
