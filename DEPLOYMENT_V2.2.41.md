@@ -1,11 +1,18 @@
-# V2.2.41 — Sales Report Print Layout Stabilization
+# V2.2.41 — Centralized Platform Print Architecture
 
-Print-only stabilization for `management/sales_records.php`.
+## Scope
+Platform-wide print cleanup and stabilization.
 
-- A4 landscape for the Sales Report.
-- Printable-width tables with wrapping and compact print typography.
-- `.table-responsive` overflow released during printing.
-- Debt ledger avoids orphaning its header from the first row.
-- V2.2.40 receivable/payment logic is unchanged.
+## Architecture
+- `assets/css/print.css` is the single source of truth for browser-print layout.
+- `assets/js/print-manager.js` is the single print entry point and automatically chooses portrait/landscape based on report width unless a page explicitly overrides it.
+- Print assets are loaded globally by `navbar_head.php`.
+- Actions columns, buttons, filters, navigation and other interactive UI are removed centrally.
+- Responsive tables are made printable, cells wrap, headers repeat, and rows avoid splitting across pages.
+- Shared page-break utilities replace page-specific print CSS.
 
-Verify with `php scripts/verify_v2241_sales_print_layout.php`, the V2.2.40 verifier, PHP syntax check, and live Print Monthly QA.
+## Audit
+See `docs/PRINT_ARCHITECTURE_AUDIT.md` for all pre-centralization print touchpoints discovered by the repository scan.
+
+## Regression
+Receivable/payment business logic is unchanged. V2.2.40 verification must continue to pass.

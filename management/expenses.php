@@ -440,7 +440,7 @@ foreach ($expenses as $expense) {
     });
 
     $('#printMonthlyBtn, #printYearlyBtn').on('click', function() {
-        window.print();
+        PrintManager.print();
     });
 
     <?php if ($canManageExpenses): ?>

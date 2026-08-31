@@ -625,7 +625,7 @@ function printReport(elementId = 'report-content') {
     const originalContent = document.body.innerHTML;
     
     document.body.innerHTML = printContent.innerHTML;
-    window.print();
+    PrintManager.print();
     document.body.innerHTML = originalContent;
     location.reload();
 }

@@ -468,7 +468,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     }
     
     function printReport() {
-        window.print();
+        PrintManager.print();
     }
     
     function exportToExcel() {

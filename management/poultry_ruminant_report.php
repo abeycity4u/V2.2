@@ -227,7 +227,7 @@ $('#farmTypeFilter, #reportMode, #monthFilter, #yearFilter').on('change', functi
     $('#yearFilter').toggle(mode === 'yearly');
     applyFilters();
 });
-$('#printBtn').on('click', () => window.print());
+$('#printBtn').on('click', () => PrintManager.print(););
 </script>
 </body>
 </html>

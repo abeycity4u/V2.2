@@ -710,7 +710,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="table-responsive" id="debtLedgerPrintArea">
+                                    <div class="table-responsive" id="debtLedgerPrintArea" data-print-keep="header-with-first-row">
                                         <table class="table table-sm table-bordered align-middle">
                                             <thead class="table-light">
                                                 <tr>
@@ -1336,11 +1336,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         });
 
         $('#printMonthlyBtn').on('click', function() {
-            window.print();
+            PrintManager.print();
         });
 
         $('#printYearlyBtn').on('click', function() {
-            window.print();
+            PrintManager.print();
         });
 
         // Auto-calculate total amounts
@@ -1350,7 +1350,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         updateOutstandingField();
 
         $('#printDebtBtn').on('click', function() {
-            window.print();
+            PrintManager.print();
         });
 
         $('.edit-ledger-btn').on('click', function() {
