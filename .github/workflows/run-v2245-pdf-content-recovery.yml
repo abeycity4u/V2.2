@@ -1,0 +1,231 @@
+name: Run V2.2.45 PDF content recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-v2245-pdf-content-recovery.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply V2.2.45
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+
+          # 1) Recover PDF body content by removing the whole-document DOM rewrite
+          # introduced while hiding Actions columns.  Dompdf receives the original
+          # rendered HTML again; page-level markup owns no-print semantics.
+          service = root / 'includes/pdf/PdfReportService.php'
+          text = service.read_text()
+          text = text.replace("        $html = $this->stripActionsColumns($html);\n", "")
+          text = re.sub(
+              r"\n    private function stripActionsColumns\(string \$html\): string\n    \{.*?\n    \}\n\n    private function documentCss",
+              "\n    private function documentCss",
+              text,
+              count=1,
+              flags=re.S,
+          )
+          service.write_text(text)
+
+          # 2) Mark expense Actions columns explicitly as screen-only.
+          for rel in [
+              'poultry/layer_expenses.php',
+              'poultry/broiler_expenses.php',
+              'ruminant/ruminant_expenses.php',
+          ]:
+              p = root / rel
+              s = p.read_text()
+              s = s.replace('<th>Actions</th>', '<th class="no-print">Actions</th>')
+              # Only action cells contain edit/delete buttons; mark those cells.
+              s = re.sub(r'<td>\s*(?=<button class="btn btn-sm btn-outline-primary edit-expense-btn")', '<td class="no-print">\n                                                ', s)
+              p.write_text(s)
+
+          # 3) Migrate Sales debt-history printing to an application PDF endpoint.
+          sales = root / 'management/sales_records.php'
+          s = sales.read_text()
+          old = '''<button class="btn btn-outline-primary btn-sm" id="printDebtBtn" type="button">\n                                        <i class="bi bi-printer me-1"></i>Print Debt History\n                                    </button>'''
+          new = '''<?php if ($selectedCustomer !== ''): ?>\n                                    <a class="btn btn-outline-primary btn-sm" id="printDebtBtn"\n                                       href="debt_history_pdf.php?customer=<?php echo rawurlencode($selectedCustomer); ?>" target="_blank">\n                                        <i class="bi bi-file-earmark-pdf me-1"></i>PDF Debt History\n                                    </a>\n                                    <?php else: ?>\n                                    <button class="btn btn-outline-primary btn-sm" type="button" disabled>\n                                        <i class="bi bi-file-earmark-pdf me-1"></i>PDF Debt History\n                                    </button>\n                                    <?php endif; ?>'''
+          if old not in s:
+              raise SystemExit('Debt history button marker not found')
+          s = s.replace(old, new, 1)
+          s = re.sub(r"\n\s*\$\('#printDebtBtn'\)\.on\('click', function\(\) \{\s*PrintManager\.print\(\);\s*\}\);", '', s, count=1)
+          sales.write_text(s)
+
+          # 4) Dedicated debt-history PDF using the canonical customer ledger.
+          debt = root / 'management/debt_history_pdf.php'
+          debt.write_text(r'''<?php require_once(dirname(__DIR__) . '/init.php'); ?>
+          <?php
+          require_once(__DIR__ . '/../config.php');
+          require_once(__DIR__ . '/../includes/pdf/PdfReportService.php');
+          requireLogin();
+          requireBusinessReportAccess();
+
+          $tenantFarmId = requireCurrentFarmId();
+          $customer = trim((string)($_GET['customer'] ?? ''));
+          if ($customer === '') {
+              http_response_code(400);
+              exit('Customer is required.');
+          }
+
+          $stmt = $pdo->prepare("SELECT cle.*, COALESCE(u.full_name, 'Farm User') AS recorded_by
+              FROM customer_ledger_entries cle
+              LEFT JOIN users u ON u.id = cle.user_id AND u.farm_id = cle.farm_id
+              WHERE cle.farm_id = ? AND cle.customer_name = ?
+              ORDER BY cle.entry_date ASC, cle.id ASC");
+          $stmt->execute([$tenantFarmId, $customer]);
+          $ledger = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+          $credit = 0.0;
+          $debtPayments = 0.0;
+          $balance = 0.0;
+          foreach ($ledger as $row) {
+              $amount = (float)($row['amount'] ?? 0);
+              $balance += $amount;
+              if (($row['entry_type'] ?? '') === 'sale') $credit += max(0, $amount);
+              if (($row['entry_type'] ?? '') === 'payment') $debtPayments += abs($amount);
+          }
+
+          $upfrontStmt = $pdo->prepare("SELECT COALESCE(SUM(COALESCE(s.payment_received,0)),0)
+              FROM sales_records s
+              WHERE s.farm_id = ? AND s.id IN (
+                  SELECT DISTINCT sale_id FROM customer_ledger_entries
+                  WHERE farm_id = ? AND customer_name = ? AND sale_id IS NOT NULL
+              )");
+          $upfrontStmt->execute([$tenantFarmId, $tenantFarmId, $customer]);
+          $upfront = (float)$upfrontStmt->fetchColumn();
+          $totalPaid = $upfront + $debtPayments;
+
+          ob_start();
+          ?>
+          <!doctype html>
+          <html lang="en">
+          <head><meta charset="UTF-8"><title>Customer Debt History - Renee Farms</title></head>
+          <body>
+              <div class="card">
+                  <div class="card-header"><h2>Customer Debt History</h2><div><?php echo htmlspecialchars($customer); ?></div></div>
+                  <div class="card-body">
+                      <table class="table" style="margin-bottom:12px">
+                          <thead><tr><th>Current Outstanding</th><th>Total Credit Taken</th><th>Total Paid (Upfront + Debt)</th><th>Debt Settlements</th></tr></thead>
+                          <tbody><tr>
+                              <td>₦<?php echo number_format($balance, 2); ?></td>
+                              <td>₦<?php echo number_format($credit, 2); ?></td>
+                              <td>₦<?php echo number_format($totalPaid, 2); ?></td>
+                              <td>₦<?php echo number_format($debtPayments, 2); ?></td>
+                          </tr></tbody>
+                      </table>
+                      <h4>Ledger History</h4>
+                      <table class="table">
+                          <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount (₦)</th><th>Running Balance (₦)</th><th>Recorded By</th></tr></thead>
+                          <tbody>
+                          <?php if (!$ledger): ?>
+                              <tr><td colspan="6">No debt ledger entries for this customer.</td></tr>
+                          <?php else: $running = 0.0; foreach ($ledger as $row): $running += (float)$row['amount']; ?>
+                              <tr>
+                                  <td><?php echo htmlspecialchars(date('d/m/Y', strtotime((string)$row['entry_date']))); ?></td>
+                                  <td><?php echo htmlspecialchars(ucfirst((string)$row['entry_type'])); ?></td>
+                                  <td><?php echo htmlspecialchars((string)($row['notes'] ?? '')); ?></td>
+                                  <td><?php echo number_format((float)$row['amount'], 2); ?></td>
+                                  <td><?php echo number_format($running, 2); ?></td>
+                                  <td><?php echo htmlspecialchars((string)$row['recorded_by']); ?></td>
+                              </tr>
+                          <?php endforeach; endif; ?>
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </body>
+          </html>
+          <?php
+          $html = ob_get_clean() ?: '';
+          $service = new PdfReportService();
+          $service->streamHtml(
+              $html,
+              'debt-history-' . preg_replace('/[^A-Za-z0-9_-]+/', '-', strtolower($customer)) . '.pdf',
+              'landscape',
+              'Customer Debt History - ' . $customer
+          );
+          ''' )
+
+          # 5) Verification and consolidated deployment note.
+          verify = root / 'scripts/verify_v2245_pdf_content_recovery.php'
+          verify.write_text(r'''<?php
+          $root = dirname(__DIR__);
+          $checks = [];
+          $must = function(bool $ok, string $msg) use (&$checks) { $checks[] = [$ok, $msg]; };
+
+          $service = file_get_contents($root . '/includes/pdf/PdfReportService.php');
+          $must(!str_contains($service, 'stripActionsColumns('), 'central PDF engine no longer rewrites the whole document through DOMDocument');
+          $must(str_contains($service, "preg_replace('#<script"), 'central PDF engine still strips scripts safely');
+
+          foreach ([
+              'poultry/layer_expenses.php',
+              'poultry/broiler_expenses.php',
+              'ruminant/ruminant_expenses.php',
+          ] as $file) {
+              $src = file_get_contents($root . '/' . $file);
+              $must(str_contains($src, '<th class="no-print">Actions</th>'), "$file marks Actions header no-print");
+          }
+
+          $sales = file_get_contents($root . '/management/sales_records.php');
+          $must(str_contains($sales, 'PDF Debt History'), 'Sales exposes PDF Debt History');
+          $must(str_contains($sales, 'debt_history_pdf.php?customer='), 'Debt history uses application PDF endpoint');
+          $must(!str_contains($sales, "$('#printDebtBtn').on('click'"), 'Old browser PrintManager debt handler removed');
+
+          $debt = file_get_contents($root . '/management/debt_history_pdf.php');
+          $must(str_contains($debt, 'PdfReportService'), 'Debt history uses centralized PDF service');
+          $must(str_contains($debt, 'customer_ledger_entries'), 'Debt history reads canonical customer ledger');
+          $must(str_contains($debt, 'payment_received'), 'Debt history includes sale-time upfront cash');
+
+          $fail = 0;
+          foreach ($checks as [$ok,$msg]) { echo ($ok ? 'PASS' : 'FAIL') . " - $msg\n"; if (!$ok) $fail++; }
+          echo 'Result: ' . (count($checks)-$fail) . '/' . count($checks) . " passed\n";
+          exit($fail ? 1 : 0);
+          ''')
+
+          deploy = root / 'DEPLOYMENT.md'
+          d = deploy.read_text()
+          note = '''\n\n---\n\n## V2.2.45 — PDF Content Recovery & Debt History Migration\n\n- Fixed application-generated PDFs rendering only the Renee Farms footer after V2.2.44.\n- Root cause removed: the central PDF service no longer rewrites the complete rendered HTML through `DOMDocument` merely to remove Actions columns.\n- Actions columns are now marked explicitly as `no-print` on migrated expense pages.\n- Sales customer debt history now uses a dedicated application-generated PDF instead of browser printing.\n- Sales, Expense Report, Poultry & Ruminant Report, Analytics, Layer/Broiler/Ruminant Expenses continue to use the centralized Dompdf engine.\n- Receivables accounting logic is unchanged.\n'''
+          if '## V2.2.45 — PDF Content Recovery & Debt History Migration' not in d:
+              deploy.write_text(d.rstrip() + note)
+          PY
+
+      - name: Verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          php scripts/verify_v2245_pdf_content_recovery.php
+          php scripts/verify_v2244_pdf_stabilization.php
+          php scripts/verify_v2242_pdf_engine.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+          php -l includes/pdf/PdfReportService.php
+          php -l management/debt_history_pdf.php
+          php -l management/sales_records.php
+          php -l management/expenses.php
+          php -l management/poultry_ruminant_report.php
+          php -l management/reports.php
+          php -l poultry/layer_expenses.php
+          php -l poultry/broiler_expenses.php
+          php -l ruminant/ruminant_expenses.php
+
+      - name: Commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add includes/pdf/PdfReportService.php management/debt_history_pdf.php management/sales_records.php poultry/layer_expenses.php poultry/broiler_expenses.php ruminant/ruminant_expenses.php scripts/verify_v2245_pdf_content_recovery.php DEPLOYMENT.md
+          git commit -m "fix: V2.2.45 recover PDF content and migrate debt history"
+          git push
