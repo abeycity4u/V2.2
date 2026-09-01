@@ -1,0 +1,51 @@
+name: Package V2.2.45 cPanel ZIP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/package-v2245-cpanel.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify deployment markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -q "stripActionsColumns" includes/pdf/PdfReportService.php
+          grep -q "PDF Debt History" management/sales_records.php
+          test -f management/debt_history_pdf.php
+          test -f vendor/autoload.php
+          php scripts/verify_v2245_pdf_content_recovery.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+
+      - name: Build cPanel deployment ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package
+          rsync -a ./ package/ \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'package/'
+          cd package
+          zip -qr ../Renee-Farms-V2.2.45-cPanel.zip .
+          cd ..
+          unzip -l Renee-Farms-V2.2.45-cPanel.zip | grep -q 'includes/pdf/PdfReportService.php'
+          unzip -l Renee-Farms-V2.2.45-cPanel.zip | grep -q 'management/debt_history_pdf.php'
+          unzip -p Renee-Farms-V2.2.45-cPanel.zip includes/pdf/PdfReportService.php | (! grep -q 'stripActionsColumns')
+
+      - name: Upload cPanel ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Renee-Farms-V2.2.45-cPanel
+          path: Renee-Farms-V2.2.45-cPanel.zip
+          if-no-files-found: error
+          retention-days: 7
