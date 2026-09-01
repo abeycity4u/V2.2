@@ -535,7 +535,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit();
     }
 }
-$pdfReportUrl = pdf_report_current_url();
+$pdfReportParams = $_GET; unset($pdfReportParams['pdf']); $pdfReportUrl = 'sales_report_pdf.php?' . http_build_query($pdfReportParams);
 ?>
 <!DOCTYPE html>
 <html lang="en">

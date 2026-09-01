@@ -699,3 +699,16 @@ php scripts/verify_v2240_receivable_payment_overpayment_protection.php
 - Actions columns on migrated expense pages now use explicit `no-print` markup.
 - Sales customer debt history now uses a dedicated application-generated PDF instead of browser printing.
 - Receivables accounting logic is unchanged.
+
+
+---
+
+## V2.2.46 — Dedicated Sales & Expense PDF Templates
+
+- Sales PDF button now targets `management/sales_report_pdf.php`.
+- Expense PDF button now targets `management/expense_report_pdf.php`.
+- Interactive Bootstrap pages are no longer the official PDF render source for these reports.
+- Sales PDF omits debt details unless a customer is selected.
+- Expense PDF has no Actions column.
+- Central `PdfReportService` remains the shared renderer.
+- Receivables logic is unchanged.

@@ -81,7 +81,7 @@ foreach ($expenses as $expense) {
     $categoryTotals[$expense['category']] = ($categoryTotals[$expense['category']] ?? 0) + $lineTotal;
     $farmTypeTotals[$expense['farm_type']] = ($farmTypeTotals[$expense['farm_type']] ?? 0) + $lineTotal;
 }
-$pdfReportUrl = pdf_report_current_url();
+$pdfReportParams = $_GET; unset($pdfReportParams['pdf']); $pdfReportUrl = 'expense_report_pdf.php?' . http_build_query($pdfReportParams);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -252,7 +252,7 @@ $pdfReportUrl = pdf_report_current_url();
                                         <th>Description</th>
                                         <th>Recorded By</th>
                                         <?php if ($canManageExpenses): ?>
-                                        <th>Actions</th>
+                                        <th class="no-print">Actions</th>
                                         <?php endif; ?>
                                     </tr>
                                 </thead>
