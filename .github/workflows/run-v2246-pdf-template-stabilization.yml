@@ -1,0 +1,232 @@
+name: Run V2.2.46 PDF template stabilization
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-v2246-pdf-template-stabilization.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply V2.2.46
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('.')
+
+          sales=root/'management/sales_records.php'
+          s=sales.read_text()
+          marker="$pdfReportUrl = pdf_report_current_url();\n?>"
+          if marker not in s:
+              raise SystemExit('sales PDF insertion marker not found')
+          sales_pdf=r'''
+// V2.2.46: official PDF uses a dedicated PDF-safe template instead of rendering
+// the interactive Bootstrap page. This prevents oversized flex/grid cards,
+// blank pages and incorrect Dompdf page counts.
+if ($pdfRequested) {
+    if ($farmType === 'all') {
+        $pdfTotalSales = array_sum(array_map(static fn($r) => (float)($r['total_sales'] ?? 0), $summaries ?? []));
+        $pdfTransactions = array_sum(array_map(static fn($r) => (int)($r['transaction_count'] ?? 0), $summaries ?? []));
+    } else {
+        $pdfTotalSales = (float)($summary['total_sales'] ?? 0);
+        $pdfTransactions = (int)($summary['transaction_count'] ?? 0);
+    }
+    ob_start();
+    ?>
+    <!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Sales Report - Renee Farms</title></head><body>
+    <h2>Sales Report - <?php echo htmlspecialchars($periodLabel); ?></h2>
+    <table class="table" style="margin-bottom:12px">
+      <thead><tr><th>Total Sales</th><th>Transactions</th><th>Farm Scope</th><th>Production Type</th></tr></thead>
+      <tbody><tr>
+        <td>₦<?php echo number_format($pdfTotalSales,2); ?></td>
+        <td><?php echo number_format($pdfTransactions); ?></td>
+        <td><?php echo htmlspecialchars($farmType === 'all' ? 'All Farms' : ucfirst($farmType)); ?></td>
+        <td><?php echo htmlspecialchars($productionTypeFilter === 'all' ? 'All Production Types' : ucfirst($productionTypeFilter)); ?></td>
+      </tr></tbody>
+    </table>
+
+    <?php if ($debtFeatureEnabled && $selectedCustomer !== ''): ?>
+    <h3>Customer Debt Management — <?php echo htmlspecialchars($selectedCustomer); ?></h3>
+    <table class="table" style="margin-bottom:12px">
+      <thead><tr><th>Current Outstanding</th><th>Total Credit Taken</th><th>Total Paid (Upfront + Debt)</th><th>Debt Settlements</th></tr></thead>
+      <tbody><tr>
+        <td>₦<?php echo number_format($selectedCustomerBalance,2); ?></td>
+        <td>₦<?php echo number_format($selectedCustomerTotalCredit,2); ?></td>
+        <td>₦<?php echo number_format($selectedCustomerGrandTotalPaid,2); ?></td>
+        <td>₦<?php echo number_format($selectedCustomerTotalPayments,2); ?></td>
+      </tr></tbody>
+    </table>
+    <h4>Debt Ledger</h4>
+    <table class="table" style="margin-bottom:14px">
+      <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount (₦)</th><th>Running Balance (₦)</th><th>Recorded By</th></tr></thead>
+      <tbody>
+      <?php if (!$customerLedger): ?>
+        <tr><td colspan="6">No debt ledger entries for this customer.</td></tr>
+      <?php else: $pdfRunning=0.0; foreach($customerLedger as $entry): $pdfRunning += (float)$entry['amount']; ?>
+        <tr>
+          <td><?php echo htmlspecialchars(date('d/m/Y',strtotime((string)$entry['entry_date']))); ?></td>
+          <td><?php echo htmlspecialchars(ucfirst((string)$entry['entry_type'])); ?></td>
+          <td><?php echo htmlspecialchars((string)($entry['notes'] ?? '--')); ?></td>
+          <td><?php echo number_format((float)$entry['amount'],2); ?></td>
+          <td><?php echo number_format($pdfRunning,2); ?></td>
+          <td><?php echo htmlspecialchars((string)($entry['recorded_by'] ?? '--')); ?></td>
+        </tr>
+      <?php endforeach; endif; ?>
+      </tbody>
+    </table>
+    <?php endif; ?>
+
+    <h3>Sales Records</h3>
+    <table class="table">
+      <thead><tr><th>Date</th><th>Farm Type</th><th>Production Type</th><th>Cycle</th><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total Amount</th><th>Customer</th><th>Remarks</th><th>Recorded By</th></tr></thead>
+      <tbody>
+      <?php if (!$salesRecords): ?>
+        <tr><td colspan="11">No sales records for this period.</td></tr>
+      <?php else: foreach($salesRecords as $sale): ?>
+        <tr>
+          <td><?php echo htmlspecialchars(date('d/m/Y',strtotime((string)$sale['sale_date']))); ?></td>
+          <td><?php echo htmlspecialchars(ucfirst((string)$sale['farm_type'])); ?></td>
+          <td><?php echo htmlspecialchars(ucfirst((string)($sale['production_type'] ?? '--'))); ?></td>
+          <td><?php echo htmlspecialchars((string)($sale['cycle_code'] ?: 'Shared / Unassigned')); ?></td>
+          <td><?php echo htmlspecialchars((string)$sale['product_type']); ?></td>
+          <td><?php echo number_format((float)$sale['quantity'],2); ?></td>
+          <td>₦<?php echo number_format((float)$sale['unit_price'],2); ?></td>
+          <td>₦<?php echo number_format((float)$sale['total_amount'],2); ?></td>
+          <td><?php echo htmlspecialchars((string)($sale['customer_name'] ?: '--')); ?></td>
+          <td><?php echo htmlspecialchars((string)($sale['remarks'] ?: '--')); ?></td>
+          <td><?php echo htmlspecialchars((string)($sale['seller'] ?: '--')); ?></td>
+        </tr>
+      <?php endforeach; endif; ?>
+      </tbody>
+    </table>
+    </body></html>
+    <?php
+    $pdfHtml = ob_get_clean() ?: '';
+    $pdfService = new PdfReportService();
+    $pdfService->streamHtml($pdfHtml, 'sales-report-' . strtolower(str_replace(' ', '-', $periodLabel)) . '.pdf', 'landscape', 'Sales Report - ' . $periodLabel);
+}
+'''
+          s=s.replace(marker,sales_pdf+'\n'+marker,1)
+          sales.write_text(s)
+
+          exp=root/'management/expenses.php'
+          e=exp.read_text()
+          marker2="$pdfReportUrl = pdf_report_current_url();\n?>"
+          if marker2 not in e:
+              raise SystemExit('expense PDF insertion marker not found')
+          exp_pdf=r'''
+// V2.2.46: dedicated PDF-safe Expense Report template. Interactive controls,
+// progress bars and Actions columns remain web-only.
+if ($pdfRequested) {
+    ob_start();
+    ?>
+    <!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Expense Report - Renee Farms</title></head><body>
+    <h2>Expense Report - <?php echo htmlspecialchars($periodLabel); ?></h2>
+    <table class="table" style="margin-bottom:12px">
+      <thead><tr><th>Total Expenses</th><th>Farm Scope</th><th>Production Type</th><th>Category</th></tr></thead>
+      <tbody><tr>
+        <td>₦<?php echo number_format($totalExpenses,2); ?></td>
+        <td><?php echo htmlspecialchars($farmType === 'all' ? 'All Farms' : ucfirst($farmType)); ?></td>
+        <td><?php echo htmlspecialchars($productionType === 'all' ? 'All Production Types' : ucfirst($productionType)); ?></td>
+        <td><?php echo htmlspecialchars($category === 'all' ? 'All Categories' : ucfirst($category)); ?></td>
+      </tr></tbody>
+    </table>
+
+    <table class="table" style="margin-bottom:12px">
+      <thead><tr><th colspan="2">By Farm Type</th><th colspan="2">By Category</th></tr></thead>
+      <tbody>
+      <?php $farmRows=array_values($farmTypeTotals); $farmKeys=array_keys($farmTypeTotals); $catRows=array_values($categoryTotals); $catKeys=array_keys($categoryTotals); $maxRows=max(count($farmKeys),count($catKeys),1); for($i=0;$i<$maxRows;$i++): ?>
+        <tr>
+          <td><?php echo isset($farmKeys[$i]) ? htmlspecialchars(ucfirst((string)$farmKeys[$i])) : ''; ?></td>
+          <td><?php echo isset($farmRows[$i]) ? '₦'.number_format((float)$farmRows[$i],2) : ''; ?></td>
+          <td><?php echo isset($catKeys[$i]) ? htmlspecialchars(ucfirst((string)$catKeys[$i])) : ''; ?></td>
+          <td><?php echo isset($catRows[$i]) ? '₦'.number_format((float)$catRows[$i],2) : ''; ?></td>
+        </tr>
+      <?php endfor; ?>
+      </tbody>
+    </table>
+
+    <h3>Detailed Expenses</h3>
+    <table class="table">
+      <thead><tr><th>Date</th><th>Farm Type</th><th>Production Type</th><th>Category</th><th>Unit</th><th>Amount</th><th>Total</th><th>Description</th><th>Recorded By</th></tr></thead>
+      <tbody>
+      <?php if (!$expenses): ?>
+        <tr><td colspan="9">No expenses recorded for this period.</td></tr>
+      <?php else: foreach($expenses as $expense): $pdfLineTotal=(float)($expense['amount']??0)*(float)($expense['unit']??1); ?>
+        <tr>
+          <td><?php echo htmlspecialchars(date('d/m/Y',strtotime((string)$expense['expense_date']))); ?></td>
+          <td><?php echo htmlspecialchars(ucfirst((string)$expense['farm_type'])); ?></td>
+          <td><?php echo htmlspecialchars(ucfirst((string)($expense['production_type'] ?? '--'))); ?></td>
+          <td><?php echo htmlspecialchars(ucfirst((string)$expense['category'])); ?></td>
+          <td><?php echo number_format((float)($expense['unit']??1),2); ?></td>
+          <td>₦<?php echo number_format((float)($expense['amount']??0),2); ?></td>
+          <td>₦<?php echo number_format($pdfLineTotal,2); ?></td>
+          <td><?php echo htmlspecialchars((string)($expense['description'] ?: '--')); ?></td>
+          <td><?php echo htmlspecialchars((string)($expense['full_name'] ?: '--')); ?></td>
+        </tr>
+      <?php endforeach; endif; ?>
+      </tbody>
+    </table>
+    </body></html>
+    <?php
+    $pdfHtml = ob_get_clean() ?: '';
+    $pdfService = new PdfReportService();
+    $pdfService->streamHtml($pdfHtml, 'expense-report-' . strtolower(str_replace(' ', '-', $periodLabel)) . '.pdf', 'landscape', 'Expense Report - ' . $periodLabel);
+}
+'''
+          e=e.replace(marker2,exp_pdf+'\n'+marker2,1)
+          # Also mark the web table Actions header explicitly screen-only for consistency.
+          e=e.replace('<th>Actions</th>', '<th class="no-print">Actions</th>')
+          exp.write_text(e)
+
+          verify=root/'scripts/verify_v2246_pdf_template_stabilization.php'
+          verify.write_text(r'''<?php
+          $root=dirname(__DIR__); $checks=[]; $must=function(bool $ok,string $msg)use(&$checks){$checks[]=[$ok,$msg];};
+          $sales=file_get_contents($root.'/management/sales_records.php');
+          $must(str_contains($sales,'V2.2.46: official PDF uses a dedicated PDF-safe template'),'Sales has dedicated PDF template');
+          $must(str_contains($sales,'<h3>Sales Records</h3>'),'Sales PDF includes records table');
+          $must(str_contains($sales,"$debtFeatureEnabled && $selectedCustomer !== ''"),'Sales PDF only renders debt details for a selected customer');
+          $must(str_contains($sales,"'landscape', 'Sales Report - '"),'Sales PDF uses controlled landscape output');
+          $expenses=file_get_contents($root.'/management/expenses.php');
+          $must(str_contains($expenses,'V2.2.46: dedicated PDF-safe Expense Report template'),'Expense has dedicated PDF template');
+          $must(str_contains($expenses,'<h3>Detailed Expenses</h3>'),'Expense PDF includes detailed table');
+          $must(str_contains($expenses,'<th class="no-print">Actions</th>'),'Expense web Actions header is screen-only');
+          $must(!str_contains(substr($expenses,strpos($expenses,'V2.2.46: dedicated PDF-safe Expense Report template'),strpos($expenses,"$pdfReportUrl = pdf_report_current_url();")-strpos($expenses,'V2.2.46: dedicated PDF-safe Expense Report template')),'<th>Actions</th>'),'Expense dedicated PDF has no Actions column');
+          $service=file_get_contents($root.'/includes/pdf/PdfReportService.php');
+          $must(!str_contains($service,'stripActionsColumns('),'Central PDF engine remains free of whole-document Actions rewrite');
+          $fail=0; foreach($checks as [$ok,$msg]){echo($ok?'PASS':'FAIL')." - $msg\n";if(!$ok)$fail++;} echo 'Result: '.(count($checks)-$fail).'/'.count($checks)." passed\n"; exit($fail?1:0);
+          ''')
+
+          dep=root/'DEPLOYMENT.md'; d=dep.read_text()
+          note='''\n\n---\n\n## V2.2.46 — PDF Report Template Stabilization\n\n- Sales Report now uses a dedicated PDF-safe HTML template rather than rendering the interactive Bootstrap page.\n- Eliminates oversized debt summary cards, blank pagination and incorrect page-count expansion in Sales PDFs.\n- Customer debt details are included in Sales PDF only when a customer is actually selected.\n- Expense Report now uses a dedicated PDF-safe HTML template with compact summary/breakdown tables.\n- Expense Report PDF no longer includes the empty Actions column.\n- Central `PdfReportService` remains the shared PDF renderer; report pages provide structured PDF-safe templates.\n- Receivables/accounting calculations are unchanged.\n'''
+          if '## V2.2.46 — PDF Report Template Stabilization' not in d:
+              dep.write_text(d.rstrip()+note)
+          PY
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          php scripts/verify_v2246_pdf_template_stabilization.php
+          php scripts/verify_v2245_pdf_content_recovery.php
+          php scripts/verify_v2242_pdf_engine.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+          php -l management/sales_records.php
+          php -l management/expenses.php
+
+      - name: Commit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add management/sales_records.php management/expenses.php scripts/verify_v2246_pdf_template_stabilization.php DEPLOYMENT.md
+          git commit -m "fix: V2.2.46 stabilize Sales and Expense PDF templates"
+          git push
