@@ -1,0 +1,44 @@
+name: Finalize V2.2.46 PDF endpoints
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-v2246-pdf-endpoint-wireup-final.yml'
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire buttons
+        shell: bash
+        run: |
+          python3 -c "from pathlib import Path; p=Path('management/sales_records.php'); s=p.read_text(); old='\$pdfReportUrl = pdf_report_current_url();'; new=\"\$pdfReportParams = \$_GET; unset(\$pdfReportParams['pdf']); \$pdfReportUrl = 'sales_report_pdf.php?' . http_build_query(\$pdfReportParams);\"; p.write_text(s.replace(old,new,1)) if old in s else None"
+          python3 -c "from pathlib import Path; p=Path('management/expenses.php'); s=p.read_text(); old='\$pdfReportUrl = pdf_report_current_url();'; new=\"\$pdfReportParams = \$_GET; unset(\$pdfReportParams['pdf']); \$pdfReportUrl = 'expense_report_pdf.php?' . http_build_query(\$pdfReportParams);\"; s=s.replace(old,new,1) if old in s else s; s=s.replace('<th>Actions</th>','<th class=\\\"no-print\\\">Actions</th>'); p.write_text(s)"
+      - name: Verify
+        shell: bash
+        run: |
+          php -l management/sales_records.php
+          php -l management/expenses.php
+          php -l management/sales_report_pdf.php
+          php -l management/expense_report_pdf.php
+          grep -q "sales_report_pdf.php" management/sales_records.php
+          grep -q "expense_report_pdf.php" management/expenses.php
+          grep -q "PDF Debt History" management/sales_records.php
+          ! grep -q "stripActionsColumns(" includes/pdf/PdfReportService.php
+          php scripts/verify_v2240_receivable_payment_overpayment_protection.php
+      - name: Commit
+        shell: bash
+        run: |
+          set -e
+          if ! grep -q "## V2.2.46 — Dedicated Sales & Expense PDF Templates" DEPLOYMENT.md; then
+            printf '\n\n---\n\n## V2.2.46 — Dedicated Sales & Expense PDF Templates\n\n- Sales PDF button now targets `management/sales_report_pdf.php`.\n- Expense PDF button now targets `management/expense_report_pdf.php`.\n- Interactive Bootstrap pages are no longer the official PDF render source for these reports.\n- Sales PDF omits debt details unless a customer is selected.\n- Expense PDF has no Actions column.\n- Central `PdfReportService` remains the shared renderer.\n- Receivables logic is unchanged.\n' >> DEPLOYMENT.md
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add management/sales_records.php management/expenses.php DEPLOYMENT.md
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: V2.2.46 finalize dedicated Sales and Expense PDF templates"
+            git push
+          fi
