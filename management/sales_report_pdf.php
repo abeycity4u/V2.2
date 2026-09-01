@@ -60,7 +60,9 @@ if ($productionType !== 'all') {
 $sql .= " ORDER BY s.sale_date DESC,s.id DESC";
 $stmt = $pdo->prepare($sql); $stmt->execute($params); $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $totalSales = 0.0;
-foreach ($sales as $row) $totalSales += (float)($row['total_amount'] ?? ((float)$row['quantity'] * (float)$row['unit_price']);
+foreach ($sales as $row) {
+    $totalSales += (float)($row['total_amount'] ?? ((float)$row['quantity'] * (float)$row['unit_price']));
+}
 $transactionCount = count($sales);
 
 $ledger = [];
@@ -111,7 +113,7 @@ ob_start();
 <h3>Sales Records</h3>
 <table class="table"><thead><tr><th>Date</th><th>Farm Type</th><th>Production Type</th><th>Cycle</th><th>Product</th><th>Qty</th><th>Unit Price</th><th>Total Amount</th><th>Customer</th><th>Remarks</th><th>Recorded By</th></tr></thead><tbody>
 <?php if (!$sales): ?><tr><td colspan="11">No sales records for this period.</td></tr>
-<?php else: foreach($sales as $sale): $rowTotal=(float)($sale['total_amount'] ?? ((float)$sale['quantity']*(float)$sale['unit_price']); ?>
+<?php else: foreach($sales as $sale): $rowTotal=(float)($sale['total_amount'] ?? ((float)$sale['quantity']*(float)$sale['unit_price'])); ?>
 <tr><td><?php echo htmlspecialchars(date('d/m/Y',strtotime((string)$sale['sale_date']))); ?></td><td><?php echo htmlspecialchars(ucfirst((string)$sale['farm_type'])); ?></td><td><?php echo htmlspecialchars(ucfirst((string)($sale['production_type']??'--'))); ?></td><td><?php echo htmlspecialchars((string)($sale['cycle_code'] ?: 'Shared / Unassigned')); ?></td><td><?php echo htmlspecialchars((string)$sale['product_type']); ?></td><td><?php echo number_format((float)$sale['quantity'],2); ?></td><td>₦<?php echo number_format((float)$sale['unit_price'],2); ?></td><td>₦<?php echo number_format($rowTotal,2); ?></td><td><?php echo htmlspecialchars((string)($sale['customer_name']?:'--')); ?></td><td><?php echo htmlspecialchars((string)($sale['remarks']?:'--')); ?></td><td><?php echo htmlspecialchars((string)($sale['seller']?:'--')); ?></td></tr>
 <?php endforeach; endif; ?></tbody></table>
 </body></html>
